@@ -1,0 +1,57 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+// Get all blog posts and filter out private ones for public listing
+const allPosts = await getCollection('blog');
+const publicPosts = allPosts
+  .filter((post) => !post.data.isPrivate)
+  .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+
+const siteTitle = 'My Personal Blog';
+---
+
+<BaseLayout title={siteTitle} description="Welcome to my personal blog where I share my thoughts and ideas">
+  <article>
+    <h1>Welcome to My Blog</h1>
+    <p style="margin-bottom: 2rem; color: rgb(var(--gray));">
+      Sharing my thoughts, ideas, and experiences.
+    </p>
+
+    <section>
+      <h2>Recent Posts</h2>
+      {publicPosts.length === 0 && (
+        <p style="color: rgb(var(--gray)); font-style: italic;">
+          No posts yet. Check back soon!
+        </p>
+      )}
+      <ul style="list-style: none; display: flex; flex-direction: column; gap: 2rem; margin-top: 1.5rem;">
+        {publicPosts.map((post) => (
+          <li style="padding: 1.5rem; background: white; border-radius: 8px; box-shadow: var(--box-shadow);">
+            <a href={`/blog/${post.slug}/`} style="text-decoration: none;">
+              <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem; color: var(--accent);">
+                {post.data.title}
+              </h3>
+              <time style="color: rgb(var(--gray)); font-size: 0.9rem;">
+                {post.data.pubDate.toLocaleDateString('en-us', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                })}
+              </time>
+              <p style="margin-top: 0.75rem; color: rgb(var(--gray-dark));">
+                {post.data.description}
+              </p>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  </article>
+
+  <style>
+    h3:hover {
+      text-decoration: underline;
+    }
+  </style>
+</BaseLayout>
