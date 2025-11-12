@@ -1,0 +1,173 @@
+---
+// Create new post page
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getUserBySession } from '../../lib/auth';
+
+// Check authentication
+const sessionCookie = Astro.cookies.get('session');
+if (!sessionCookie?.value) {
+  return Astro.redirect('/admin/login');
+}
+
+const db = Astro.locals.runtime.env.DB;
+const user = await getUserBySession(db, sessionCookie.value);
+
+if (!user) {
+  return Astro.redirect('/admin/login');
+}
+---
+
+<BaseLayout title="Create New Post" description="Create a new blog post">
+  <div style="margin-bottom: 2rem;">
+    <h1>Create New Post</h1>
+  </div>
+
+  <form id="post-form" style="max-width: 800px;">
+    <div style="margin-bottom: 1.5rem;">
+      <label for="title" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Title *</label>
+      <input
+        type="text"
+        id="title"
+        name="title"
+        required
+        style="width: 100%; padding: 0.75rem; border: 2px solid rgb(var(--gray-light)); border-radius: 4px; font-size: 1rem;"
+      />
+    </div>
+
+    <div style="margin-bottom: 1.5rem;">
+      <label for="description" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Description *</label>
+      <input
+        type="text"
+        id="description"
+        name="description"
+        required
+        style="width: 100%; padding: 0.75rem; border: 2px solid rgb(var(--gray-light)); border-radius: 4px; font-size: 1rem;"
+        placeholder="Short description of the post"
+      />
+    </div>
+
+    <div style="margin-bottom: 1.5rem;">
+      <label for="content" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Content * (Markdown supported)</label>
+      <textarea
+        id="content"
+        name="content"
+        required
+        rows="20"
+        style="width: 100%; padding: 0.75rem; border: 2px solid rgb(var(--gray-light)); border-radius: 4px; font-size: 1rem; font-family: 'Courier New', Courier, monospace; line-height: 1.6;"
+        placeholder="Write your post content in Markdown..."
+      ></textarea>
+    </div>
+
+    <div style="margin-bottom: 1.5rem;">
+      <label for="heroImage" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Hero Image URL</label>
+      <input
+        type="url"
+        id="heroImage"
+        name="heroImage"
+        style="width: 100%; padding: 0.75rem; border: 2px solid rgb(var(--gray-light)); border-radius: 4px; font-size: 1rem;"
+        placeholder="https://example.com/image.jpg"
+      />
+    </div>
+
+    <div style="margin-bottom: 1.5rem;">
+      <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+        <input
+          type="checkbox"
+          id="isPrivate"
+          name="isPrivate"
+          style="width: 1.25rem; height: 1.25rem; cursor: pointer;"
+        />
+        <span style="font-weight: 600;">Make this post private</span>
+      </label>
+    </div>
+
+    <div id="private-password-field" style="margin-bottom: 1.5rem; display: none;">
+      <label for="privatePassword" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Private Post Password</label>
+      <input
+        type="text"
+        id="privatePassword"
+        name="privatePassword"
+        style="width: 100%; padding: 0.75rem; border: 2px solid rgb(var(--gray-light)); border-radius: 4px; font-size: 1rem;"
+        placeholder="Enter password for private post"
+      />
+      <p style="color: rgb(var(--gray)); font-size: 0.9rem; margin-top: 0.5rem;">
+        Readers will need this password to view the post
+      </p>
+    </div>
+
+    <p id="error-message" style="color: #dc2626; margin-bottom: 1rem; display: none;"></p>
+
+    <div style="display: flex; gap: 1rem;">
+      <button
+        type="submit"
+        style="padding: 0.75rem 1.5rem; background: var(--accent); color: white; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer; font-weight: 600;"
+      >
+        Create Post
+      </button>
+      <a
+        href="/admin"
+        style="padding: 0.75rem 1.5rem; background: rgb(var(--gray-light)); color: rgb(var(--gray-dark)); border: none; border-radius: 4px; font-size: 1rem; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block;"
+      >
+        Cancel
+      </a>
+    </div>
+  </form>
+
+  <script>
+    const form = document.getElementById('post-form') as HTMLFormElement;
+    const errorMessage = document.getElementById('error-message') as HTMLParagraphElement;
+    const isPrivateCheckbox = document.getElementById('isPrivate') as HTMLInputElement;
+    const privatePasswordField = document.getElementById('private-password-field') as HTMLDivElement;
+
+    // Show/hide password field based on checkbox
+    isPrivateCheckbox?.addEventListener('change', () => {
+      if (isPrivateCheckbox.checked) {
+        privatePasswordField.style.display = 'block';
+      } else {
+        privatePasswordField.style.display = 'none';
+      }
+    });
+
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const formData = new FormData(form);
+      const title = formData.get('title') as string;
+      const description = formData.get('description') as string;
+      const content = formData.get('content') as string;
+      const heroImage = formData.get('heroImage') as string;
+      const isPrivate = formData.get('isPrivate') === 'on';
+      const privatePassword = formData.get('privatePassword') as string;
+
+      try {
+        const response = await fetch('/api/posts', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title,
+            description,
+            content,
+            heroImage: heroImage || null,
+            isPrivate,
+            privatePassword: isPrivate ? privatePassword : null,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          // Redirect to admin dashboard
+          window.location.href = '/admin';
+        } else {
+          errorMessage.textContent = data.error || 'Failed to create post';
+          errorMessage.style.display = 'block';
+        }
+      } catch (error) {
+        errorMessage.textContent = 'An error occurred. Please try again.';
+        errorMessage.style.display = 'block';
+      }
+    });
+  </script>
+</BaseLayout>

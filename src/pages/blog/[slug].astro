@@ -1,24 +1,32 @@
 ---
-import { getCollection } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getPostBySlug } from '../../lib/db';
+import { marked } from 'marked';
 
-export async function getStaticPaths() {
-  const posts = await getCollection('blog');
-  return posts.map((post) => ({
-    params: { slug: post.slug },
-    props: post,
-  }));
+// Get slug from params
+const { slug } = Astro.params;
+
+if (!slug) {
+  return Astro.redirect('/');
 }
 
-const post = Astro.props;
-const { Content } = await post.render();
+// Get post from D1 database
+const db = Astro.locals.runtime.env.DB;
+const post = await getPostBySlug(db, slug);
+
+if (!post) {
+  return Astro.redirect('/');
+}
+
+// Convert markdown content to HTML
+const contentHtml = marked(post.content);
 
 // Check if the post is private
-const isPrivate = post.data.isPrivate;
-const privatePassword = post.data.privatePassword || 'secret';
+const isPrivate = post.isPrivate;
+const privatePassword = post.privatePassword || 'secret';
 ---
 
-<BaseLayout title={post.data.title} description={post.data.description}>
+<BaseLayout title={post.title} description={post.description}>
   {isPrivate && (
     <div id="password-gate" style="max-width: 500px; margin: 3rem auto; padding: 2rem; background: white; border-radius: 8px; box-shadow: var(--box-shadow);">
       <h2>This is a Private Post</h2>
@@ -47,24 +55,24 @@ const privatePassword = post.data.privatePassword || 'secret';
 
   <article id="blog-content" style={isPrivate ? 'display: none;' : ''}>
     <div style="margin-bottom: 2rem;">
-      {post.data.heroImage && (
+      {post.heroImage && (
         <img
-          src={post.data.heroImage}
-          alt={post.data.title}
+          src={post.heroImage}
+          alt={post.title}
           style="width: 100%; height: 400px; object-fit: cover; border-radius: 8px; margin-bottom: 2rem;"
         />
       )}
-      <h1>{post.data.title}</h1>
+      <h1>{post.title}</h1>
       <time style="color: rgb(var(--gray)); font-size: 0.9rem;">
-        {post.data.pubDate.toLocaleDateString('en-us', {
+        {new Date(post.createdAt).toLocaleDateString('en-us', {
           year: 'numeric',
           month: 'long',
           day: 'numeric',
         })}
       </time>
-      {post.data.updatedDate && (
+      {post.updatedAt && post.updatedAt !== post.createdAt && (
         <p style="color: rgb(var(--gray)); font-size: 0.9rem; font-style: italic; margin-top: 0.25rem;">
-          Last updated: {post.data.updatedDate.toLocaleDateString('en-us', {
+          Last updated: {new Date(post.updatedAt).toLocaleDateString('en-us', {
             year: 'numeric',
             month: 'long',
             day: 'numeric',
@@ -73,9 +81,7 @@ const privatePassword = post.data.privatePassword || 'secret';
       )}
     </div>
 
-    <div class="prose">
-      <Content />
-    </div>
+    <div class="prose" set:html={contentHtml} />
   </article>
 
   <style>

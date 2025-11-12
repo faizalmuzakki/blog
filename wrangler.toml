@@ -2,10 +2,8 @@
 name = "personal-blog"
 compatibility_date = "2024-11-11"
 
-[build]
-command = "npm run build"
-cwd = "/"
-
-[build.upload]
-format = "directory"
-dir = "dist"
+# D1 Database binding
+[[d1_databases]]
+binding = "DB"
+database_name = "personal-blog-db"
+database_id = "your-database-id" # You'll get this after creating the D1 database
