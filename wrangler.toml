@@ -5,5 +5,5 @@ compatibility_date = "2024-11-11"
 # D1 Database binding
 [[d1_databases]]
 binding = "DB"
-database_name = "personal-blog-db"
-database_id = "your-database-id" # You'll get this after creating the D1 database
+database_name = "blog-db"
+database_id = "c3ab4871-fc47-4bc2-b0ed-c808d567d118" # You'll get this after creating the D1 database
