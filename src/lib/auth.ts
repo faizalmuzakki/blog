@@ -1,6 +1,5 @@
 // Authentication utilities
 
-import bcrypt from 'bcryptjs';
 import type { D1Database } from '@cloudflare/workers-types';
 
 export interface User {
@@ -21,15 +20,86 @@ export function generateSessionId(): string {
   return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
-// Verify password against hash
-export async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  return bcrypt.compare(password, hash);
+// Convert string to Uint8Array
+function stringToUint8Array(str: string): Uint8Array {
+  return new TextEncoder().encode(str);
 }
 
-// Hash a password
+// Convert ArrayBuffer to hex string
+function bufferToHex(buffer: ArrayBuffer): string {
+  return Array.from(new Uint8Array(buffer))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+// Hash a password using PBKDF2 (Web Crypto API)
 export async function hashPassword(password: string): Promise<string> {
-  const saltRounds = 10;
-  return bcrypt.hash(password, saltRounds);
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iterations = 100000;
+
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    stringToUint8Array(password),
+    'PBKDF2',
+    false,
+    ['deriveBits']
+  );
+
+  const derivedBits = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: salt,
+      iterations: iterations,
+      hash: 'SHA-256'
+    },
+    keyMaterial,
+    256
+  );
+
+  // Format: iterations$salt$hash
+  const saltHex = bufferToHex(salt);
+  const hashHex = bufferToHex(derivedBits);
+
+  return `${iterations}$${saltHex}$${hashHex}`;
+}
+
+// Verify password against hash
+export async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
+  try {
+    const parts = storedHash.split('$');
+    if (parts.length !== 3) return false;
+
+    const iterations = parseInt(parts[0]);
+    const salt = new Uint8Array(parts[1].match(/.{2}/g)?.map(byte => parseInt(byte, 16)) || []);
+    const storedHashBytes = parts[2];
+
+    const keyMaterial = await crypto.subtle.importKey(
+      'raw',
+      stringToUint8Array(password),
+      'PBKDF2',
+      false,
+      ['deriveBits']
+    );
+
+    const derivedBits = await crypto.subtle.deriveBits(
+      {
+        name: 'PBKDF2',
+        salt: salt,
+        iterations: iterations,
+        hash: 'SHA-256'
+      },
+      keyMaterial,
+      256
+    );
+
+    const hashHex = bufferToHex(derivedBits);
+
+    // Constant-time comparison
+    return hashHex === storedHashBytes;
+  } catch (error) {
+    console.error('Password verification error:', error);
+    return false;
+  }
 }
 
 // Create a new session

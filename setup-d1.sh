@@ -57,7 +57,15 @@ wrangler d1 execute personal-blog-db --file=./schema.sql
 echo "✅ Tables created"
 echo ""
 
-# Run seed data
+# Create admin user with password hash
+echo "Creating admin user..."
+node setup-admin.js > admin-user.sql
+wrangler d1 execute personal-blog-db --file=./admin-user.sql
+rm admin-user.sql
+echo "✅ Admin user created"
+echo ""
+
+# Run seed data (blog posts)
 echo "Inserting seed data..."
 wrangler d1 execute personal-blog-db --file=./seed.sql
 echo "✅ Seed data inserted"

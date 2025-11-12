@@ -1,11 +1,5 @@
 -- Seed data for Personal Blog
-
--- Insert default admin user
--- Username: admin
--- Password: admin123
--- Note: Run 'node generate-password.js admin123' to generate a new hash
-INSERT OR IGNORE INTO users (id, username, password_hash)
-VALUES (1, 'admin', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy');
+-- Note: Admin user is created by setup-d1.sh script using setup-admin.js
 
 -- Insert sample blog posts
 INSERT OR IGNORE INTO posts (title, slug, description, content, is_private, created_at)
