@@ -1,7 +1,7 @@
-// Script to generate password hash using Web Crypto API (PBKDF2)
-// Usage: node generate-password.js <password>
+// Script to generate admin user password hash
+// This is called by setup-d1.sh
 
-const password = process.argv[2] || 'admin123';
+const password = 'admin123';
 
 // Convert string to Uint8Array
 function stringToUint8Array(str) {
@@ -46,16 +46,13 @@ async function hashPassword(password) {
   return `${iterations}$${saltHex}$${hashHex}`;
 }
 
-// Run the hash
+// Generate hash and output SQL
 hashPassword(password).then(hash => {
-  console.log('\n=================================');
-  console.log('Password Hash Generated');
-  console.log('=================================');
-  console.log(`Password: ${password}`);
-  console.log(`Hash: ${hash}`);
-  console.log('\nAdd this to your seed.sql file:');
-  console.log(`INSERT INTO users (username, password_hash) VALUES ('admin', '${hash}');`);
-  console.log('=================================\n');
+  console.log(`-- Admin user for personal blog`);
+  console.log(`-- Username: admin`);
+  console.log(`-- Password: ${password}`);
+  console.log(`INSERT OR IGNORE INTO users (id, username, password_hash)`);
+  console.log(`VALUES (1, 'admin', '${hash}');`);
 }).catch(err => {
   console.error('Error generating hash:', err);
   process.exit(1);
