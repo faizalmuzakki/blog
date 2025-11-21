@@ -48,7 +48,7 @@ async function hashPassword(password) {
 
 // Generate hash and output SQL
 hashPassword(password).then(hash => {
-  console.log(`-- Admin user for personal blog`);
+  console.log(`-- Admin user for blog`);
   console.log(`-- Username: admin`);
   console.log(`-- Password: ${password}`);
   console.log(`INSERT OR IGNORE INTO users (id, username, password_hash)`);

@@ -6,12 +6,12 @@ import { getPublicPosts } from '../lib/db';
 const db = Astro.locals.runtime.env.DB;
 const publicPosts = await getPublicPosts(db);
 
-const siteTitle = 'My Personal Blog';
+const siteTitle = 'Solork Blog';
 ---
 
-<BaseLayout title={siteTitle} description="Welcome to my personal blog where I share my thoughts and ideas">
+<BaseLayout title={siteTitle} description="Welcome to solork blog where I share my thoughts and ideas">
   <article>
-    <h1>Welcome to My Blog</h1>
+    <h1>Welcome to Solork Blog</h1>
     <p style="margin-bottom: 2rem; color: rgb(var(--gray));">
       Sharing my thoughts, ideas, and experiences.
     </p>

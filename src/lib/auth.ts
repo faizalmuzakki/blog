@@ -161,13 +161,24 @@ export async function authenticateUser(
   username: string,
   password: string
 ): Promise<User | null> {
+  console.log('[AUTH] Looking up user:', username);
+
   const result = await db.prepare(
     'SELECT id, username, password_hash as passwordHash FROM users WHERE username = ?'
   ).bind(username).first<{ id: number; username: string; passwordHash: string }>();
 
-  if (!result) return null;
+  if (!result) {
+    console.log('[AUTH] User not found:', username);
+    return null;
+  }
+
+  console.log('[AUTH] User found, verifying password...');
+  console.log('[AUTH] Stored hash:', result.passwordHash);
 
   const isValid = await verifyPassword(password, result.passwordHash);
+
+  console.log('[AUTH] Password valid:', isValid);
+
   if (!isValid) return null;
 
   return {

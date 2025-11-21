@@ -1,16 +1,16 @@
--- Seed data for Personal Blog
+-- Seed data for Blog
 -- Note: Admin user is created by setup-d1.sh script using setup-admin.js
 
 -- Insert sample blog posts
 INSERT OR IGNORE INTO posts (title, slug, description, content, is_private, created_at)
 VALUES
 (
-  'Welcome to My Blog',
+  'Welcome to Solork Blog',
   'welcome',
   'My first blog post - introducing myself and what this blog is about',
   '# Welcome!
 
-Hello and welcome to my personal blog! I''m excited to share my thoughts, experiences, and learnings with you.
+Hello and welcome to solork blog! I''m excited to share my thoughts, experiences, and learnings with you.
 
 ## What This Blog Is About
 
@@ -43,10 +43,10 @@ Thanks for stopping by, and I hope you find something interesting here!
   datetime('2024-11-10 10:00:00')
 ),
 (
-  'Building My Personal Blog with Astro',
+  'Building Solork Blog with Astro',
   'building-my-blog',
   'How I built this blog using Astro, Cloudflare D1, and deployed it to Cloudflare Pages',
-  '# Building My Personal Blog
+  '# Building Solork Blog
 
 Today I built this blog using **Astro**, **Cloudflare D1**, and deployed it to **Cloudflare Pages**. Here''s how I did it!
 

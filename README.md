@@ -1,6 +1,6 @@
-# Personal Blog with Admin Dashboard
+# Blog with Admin Dashboard
 
-A dynamic personal blog built with Astro SSR, Cloudflare D1 database, and an admin dashboard for creating and managing posts. Features authentication, public/private posts, and easy deployment to Cloudflare Pages.
+A dynamic blog built with Astro SSR, Cloudflare D1 database, and an admin dashboard for creating and managing posts. Features authentication, public/private posts, and easy deployment to Cloudflare Pages.
 
 ## Features
 
@@ -160,7 +160,7 @@ node generate-password.js your-new-password
 Then update the hash in your D1 database:
 
 ```bash
-wrangler d1 execute personal-blog-db \
+wrangler d1 execute blog-db \
   --command "UPDATE users SET password_hash = 'YOUR_NEW_HASH' WHERE username = 'admin'"
 ```
 
@@ -186,7 +186,7 @@ Or update the `seed.sql` file and re-run the setup.
    - Go to **Settings** > **Functions** > **D1 database bindings**
    - Add binding:
      - Variable name: `DB`
-     - D1 database: Select `personal-blog-db`
+     - D1 database: Select `blog-db`
 
 5. **Deploy!**
 
@@ -199,7 +199,7 @@ Every push to your repository will automatically deploy.
 npm run build
 
 # Deploy to Cloudflare Pages
-wrangler pages deploy dist --project-name=personal-blog
+wrangler pages deploy dist --project-name=blog
 
 # Set up D1 binding (first time only)
 # This is done via the dashboard: Settings > Functions > D1 database bindings
@@ -211,21 +211,41 @@ After deployment, if you need to update your production database:
 
 ```bash
 # Run migrations on production
-wrangler d1 execute personal-blog-db --file=./schema.sql --remote
+wrangler d1 execute blog-db --file=./schema.sql --remote
 
 # Add seed data (if needed)
-wrangler d1 execute personal-blog-db --file=./seed.sql --remote
+wrangler d1 execute blog-db --file=./seed.sql --remote
 ```
 
 ## Environment: Local vs Production
 
 ### Local Development
 
-Uses `wrangler dev` with local D1 database. All data is stored locally.
+Uses local D1 database. All data is stored locally in `.wrangler/state/v3/d1`.
 
 ```bash
 npm run dev
 ```
+
+### Syncing Remote Database to Local
+
+If you want to test with production data locally, sync the remote database to your local environment:
+
+```bash
+# Export from remote
+wrangler d1 export blog-db --remote --output=remote-backup.sql
+
+# Clear local database
+wrangler d1 execute blog-db --command "DROP TABLE IF EXISTS sessions; DROP TABLE IF EXISTS posts; DROP TABLE IF EXISTS users;"
+
+# Import remote data to local
+wrangler d1 execute blog-db --file=remote-backup.sql
+
+# Clean up
+rm remote-backup.sql
+```
+
+After syncing, use regular `npm run dev` to run locally with the synced data.
 
 ### Production
 
@@ -308,16 +328,16 @@ export default defineConfig({
 wrangler d1 list
 
 # Query database (local)
-wrangler d1 execute personal-blog-db --command "SELECT * FROM posts"
+wrangler d1 execute blog-db --command "SELECT * FROM posts"
 
 # Query database (remote/production)
-wrangler d1 execute personal-blog-db --command "SELECT * FROM posts" --remote
+wrangler d1 execute blog-db --command "SELECT * FROM posts" --remote
 
 # Run SQL file
-wrangler d1 execute personal-blog-db --file=./schema.sql
+wrangler d1 execute blog-db --file=./schema.sql
 
 # Run SQL file on production
-wrangler d1 execute personal-blog-db --file=./schema.sql --remote
+wrangler d1 execute blog-db --file=./schema.sql --remote
 ```
 
 ## Technologies Used
@@ -345,7 +365,7 @@ Make sure your D1 binding is configured correctly in `wrangler.toml` and in your
 
 ### Can't login
 
-1. Check that the database was set up correctly: `wrangler d1 execute personal-blog-db --command "SELECT * FROM users"`
+1. Check that the database was set up correctly: `wrangler d1 execute blog-db --command "SELECT * FROM users"`
 2. Try resetting your password using `generate-password.js`
 3. Check browser console for errors
 

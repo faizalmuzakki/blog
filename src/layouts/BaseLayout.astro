@@ -4,7 +4,7 @@ interface Props {
   description?: string;
 }
 
-const { title, description = 'My Personal Blog' } = Astro.props;
+const { title, description = 'Solork Blog' } = Astro.props;
 ---
 
 <!doctype html>
@@ -78,9 +78,11 @@ const { title, description = 'My Personal Blog' } = Astro.props;
   </head>
   <body>
     <main>
-      <nav class="nav">
-        <a href="/">← Back to Blog</a>
-      </nav>
+      {Astro.url.pathname !== '/' && (
+        <nav class="nav">
+          <a href="/">← Back to Blog</a>
+        </nav>
+      )}
       <slot />
     </main>
   </body>

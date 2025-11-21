@@ -1,4 +1,4 @@
--- Personal Blog Database Schema
+-- Blog Database Schema
 
 -- Users table (for authentication)
 CREATE TABLE IF NOT EXISTS users (
