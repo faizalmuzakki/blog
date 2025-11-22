@@ -5,6 +5,9 @@ import type { D1Database } from '@cloudflare/workers-types';
 export interface User {
   id: number;
   username: string;
+  email?: string | null;
+  googleId?: string | null;
+  role: 'admin' | 'user';
 }
 
 export interface Session {
@@ -149,7 +152,7 @@ export async function getUserBySession(db: D1Database, sessionId: string): Promi
   if (!session) return null;
 
   const result = await db.prepare(
-    'SELECT id, username FROM users WHERE id = ?'
+    'SELECT id, username, email, google_id as googleId, role FROM users WHERE id = ?'
   ).bind(session.userId).first<User>();
 
   return result || null;
@@ -164,8 +167,8 @@ export async function authenticateUser(
   console.log('[AUTH] Looking up user:', username);
 
   const result = await db.prepare(
-    'SELECT id, username, password_hash as passwordHash FROM users WHERE username = ?'
-  ).bind(username).first<{ id: number; username: string; passwordHash: string }>();
+    'SELECT id, username, email, google_id as googleId, role, password_hash as passwordHash FROM users WHERE username = ?'
+  ).bind(username).first<User & { passwordHash: string }>();
 
   if (!result) {
     console.log('[AUTH] User not found:', username);
@@ -184,5 +187,93 @@ export async function authenticateUser(
   return {
     id: result.id,
     username: result.username,
+    email: result.email,
+    googleId: result.googleId,
+    role: result.role,
   };
+}
+
+// Find user by Google ID
+export async function getUserByGoogleId(
+  db: D1Database,
+  googleId: string
+): Promise<User | null> {
+  const result = await db.prepare(
+    'SELECT id, username, email, google_id as googleId, role FROM users WHERE google_id = ?'
+  ).bind(googleId).first<User>();
+
+  return result || null;
+}
+
+// Create user from Google OAuth
+export async function createGoogleUser(
+  db: D1Database,
+  googleId: string,
+  email: string,
+  name: string
+): Promise<User> {
+  // Generate username from email or name
+  let username = email.split('@')[0];
+
+  // Check if username exists and make it unique if needed
+  let finalUsername = username;
+  let counter = 1;
+
+  while (true) {
+    const existing = await db.prepare(
+      'SELECT id FROM users WHERE username = ?'
+    ).bind(finalUsername).first();
+
+    if (!existing) break;
+
+    finalUsername = `${username}${counter}`;
+    counter++;
+  }
+
+  const result = await db.prepare(
+    `INSERT INTO users (username, email, google_id, password_hash, role)
+     VALUES (?, ?, ?, NULL, 'user')
+     RETURNING id, username, email, google_id as googleId, role`
+  ).bind(finalUsername, email, googleId).first<User>();
+
+  if (!result) {
+    throw new Error('Failed to create Google user');
+  }
+
+  return result;
+}
+
+// Find or create Google user
+export async function findOrCreateGoogleUser(
+  db: D1Database,
+  googleId: string,
+  email: string,
+  name: string
+): Promise<User> {
+  // Try to find existing user by Google ID
+  const existingUser = await getUserByGoogleId(db, googleId);
+
+  if (existingUser) {
+    return existingUser;
+  }
+
+  // Create new user
+  return await createGoogleUser(db, googleId, email, name);
+}
+
+// Authorization helpers
+export function isAdmin(user: User): boolean {
+  return user.role === 'admin';
+}
+
+export function canModifyPost(user: User, postUserId: number | null): boolean {
+  // Admins can modify any post
+  if (isAdmin(user)) return true;
+
+  // Users can only modify their own posts
+  return postUserId === user.id;
+}
+
+export function canViewAllPosts(user: User): boolean {
+  return isAdmin(user);
 }

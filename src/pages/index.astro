@@ -30,13 +30,18 @@ const siteTitle = 'Solork Blog';
               <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem; color: var(--accent);">
                 {post.title}
               </h3>
-              <time style="color: rgb(var(--gray)); font-size: 0.9rem;">
-                {new Date(post.createdAt).toLocaleDateString('en-us', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                })}
-              </time>
+              <div style="color: rgb(var(--gray)); font-size: 0.9rem;">
+                <time>
+                  {new Date(post.createdAt).toLocaleDateString('en-us', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
+                </time>
+                {post.authorUsername && (
+                  <span> • by {post.authorUsername}</span>
+                )}
+              </div>
               <p style="margin-top: 0.75rem; color: rgb(var(--gray-dark));">
                 {post.description}
               </p>

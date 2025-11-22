@@ -14,6 +14,7 @@ export interface Post {
   createdAt: string;
   updatedAt: string;
   userId: number | null;
+  authorUsername?: string | null;
 }
 
 export interface PostInput {
@@ -31,13 +32,15 @@ export interface PostInput {
 export async function getPublicPosts(db: D1Database): Promise<Post[]> {
   const result = await db.prepare(
     `SELECT
-      id, title, slug, description, content,
-      is_private as isPrivate, private_password as privatePassword,
-      hero_image as heroImage, created_at as createdAt,
-      updated_at as updatedAt, user_id as userId
-    FROM posts
-    WHERE is_private = 0
-    ORDER BY created_at DESC`
+      p.id, p.title, p.slug, p.description, p.content,
+      p.is_private as isPrivate, p.private_password as privatePassword,
+      p.hero_image as heroImage, p.created_at as createdAt,
+      p.updated_at as updatedAt, p.user_id as userId,
+      u.username as authorUsername
+    FROM posts p
+    LEFT JOIN users u ON p.user_id = u.id
+    WHERE p.is_private = 0
+    ORDER BY p.created_at DESC`
   ).all<Post>();
 
   // Convert isPrivate from integer to boolean
@@ -51,13 +54,37 @@ export async function getPublicPosts(db: D1Database): Promise<Post[]> {
 export async function getAllPosts(db: D1Database): Promise<Post[]> {
   const result = await db.prepare(
     `SELECT
-      id, title, slug, description, content,
-      is_private as isPrivate, private_password as privatePassword,
-      hero_image as heroImage, created_at as createdAt,
-      updated_at as updatedAt, user_id as userId
-    FROM posts
-    ORDER BY created_at DESC`
+      p.id, p.title, p.slug, p.description, p.content,
+      p.is_private as isPrivate, p.private_password as privatePassword,
+      p.hero_image as heroImage, p.created_at as createdAt,
+      p.updated_at as updatedAt, p.user_id as userId,
+      u.username as authorUsername
+    FROM posts p
+    LEFT JOIN users u ON p.user_id = u.id
+    ORDER BY p.created_at DESC`
   ).all<Post>();
+
+  // Convert isPrivate from integer to boolean
+  return (result.results || []).map(post => ({
+    ...post,
+    isPrivate: Boolean(post.isPrivate)
+  }));
+}
+
+// Get posts by user ID - for regular users
+export async function getPostsByUser(db: D1Database, userId: number): Promise<Post[]> {
+  const result = await db.prepare(
+    `SELECT
+      p.id, p.title, p.slug, p.description, p.content,
+      p.is_private as isPrivate, p.private_password as privatePassword,
+      p.hero_image as heroImage, p.created_at as createdAt,
+      p.updated_at as updatedAt, p.user_id as userId,
+      u.username as authorUsername
+    FROM posts p
+    LEFT JOIN users u ON p.user_id = u.id
+    WHERE p.user_id = ?
+    ORDER BY p.created_at DESC`
+  ).bind(userId).all<Post>();
 
   // Convert isPrivate from integer to boolean
   return (result.results || []).map(post => ({
