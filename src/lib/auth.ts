@@ -5,6 +5,8 @@ import type { D1Database } from '@cloudflare/workers-types';
 export interface User {
   id: number;
   username: string;
+  email?: string | null;
+  googleId?: string | null;
 }
 
 export interface Session {
@@ -185,4 +187,72 @@ export async function authenticateUser(
     id: result.id,
     username: result.username,
   };
+}
+
+// Find user by Google ID
+export async function getUserByGoogleId(
+  db: D1Database,
+  googleId: string
+): Promise<User | null> {
+  const result = await db.prepare(
+    'SELECT id, username, email, google_id as googleId FROM users WHERE google_id = ?'
+  ).bind(googleId).first<User>();
+
+  return result || null;
+}
+
+// Create user from Google OAuth
+export async function createGoogleUser(
+  db: D1Database,
+  googleId: string,
+  email: string,
+  name: string
+): Promise<User> {
+  // Generate username from email or name
+  let username = email.split('@')[0];
+
+  // Check if username exists and make it unique if needed
+  let finalUsername = username;
+  let counter = 1;
+
+  while (true) {
+    const existing = await db.prepare(
+      'SELECT id FROM users WHERE username = ?'
+    ).bind(finalUsername).first();
+
+    if (!existing) break;
+
+    finalUsername = `${username}${counter}`;
+    counter++;
+  }
+
+  const result = await db.prepare(
+    `INSERT INTO users (username, email, google_id, password_hash)
+     VALUES (?, ?, ?, NULL)
+     RETURNING id, username, email, google_id as googleId`
+  ).bind(finalUsername, email, googleId).first<User>();
+
+  if (!result) {
+    throw new Error('Failed to create Google user');
+  }
+
+  return result;
+}
+
+// Find or create Google user
+export async function findOrCreateGoogleUser(
+  db: D1Database,
+  googleId: string,
+  email: string,
+  name: string
+): Promise<User> {
+  // Try to find existing user by Google ID
+  const existingUser = await getUserByGoogleId(db, googleId);
+
+  if (existingUser) {
+    return existingUser;
+  }
+
+  // Create new user
+  return await createGoogleUser(db, googleId, email, name);
 }
