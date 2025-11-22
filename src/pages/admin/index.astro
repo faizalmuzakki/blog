@@ -71,6 +71,9 @@ const posts = await getAllPosts(db);
                 month: 'long',
                 day: 'numeric',
               })}
+              {post.authorUsername && (
+                <span> • by {post.authorUsername}</span>
+              )}
             </p>
             <p style="color: rgb(var(--gray-dark));">
               {post.description}
