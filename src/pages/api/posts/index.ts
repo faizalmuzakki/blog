@@ -1,8 +1,8 @@
 // Posts API routes - List and Create
 
 import type { APIRoute } from 'astro';
-import { getUserBySession } from '../../../lib/auth';
-import { getAllPosts, createPost, generateSlug, slugExists } from '../../../lib/db';
+import { getUserBySession, canViewAllPosts } from '../../../lib/auth';
+import { getAllPosts, getPostsByUser, createPost, generateSlug, slugExists } from '../../../lib/db';
 
 // GET - List all posts (requires authentication)
 export const GET: APIRoute = async ({ locals, cookies }) => {
@@ -26,7 +26,10 @@ export const GET: APIRoute = async ({ locals, cookies }) => {
       );
     }
 
-    const posts = await getAllPosts(db);
+    // Admins see all posts, regular users see only their own posts
+    const posts = canViewAllPosts(user)
+      ? await getAllPosts(db)
+      : await getPostsByUser(db, user.id);
 
     return new Response(
       JSON.stringify({ posts }),

@@ -7,6 +7,7 @@ export interface User {
   username: string;
   email?: string | null;
   googleId?: string | null;
+  role: 'admin' | 'user';
 }
 
 export interface Session {
@@ -151,7 +152,7 @@ export async function getUserBySession(db: D1Database, sessionId: string): Promi
   if (!session) return null;
 
   const result = await db.prepare(
-    'SELECT id, username FROM users WHERE id = ?'
+    'SELECT id, username, email, google_id as googleId, role FROM users WHERE id = ?'
   ).bind(session.userId).first<User>();
 
   return result || null;
@@ -166,8 +167,8 @@ export async function authenticateUser(
   console.log('[AUTH] Looking up user:', username);
 
   const result = await db.prepare(
-    'SELECT id, username, password_hash as passwordHash FROM users WHERE username = ?'
-  ).bind(username).first<{ id: number; username: string; passwordHash: string }>();
+    'SELECT id, username, email, google_id as googleId, role, password_hash as passwordHash FROM users WHERE username = ?'
+  ).bind(username).first<User & { passwordHash: string }>();
 
   if (!result) {
     console.log('[AUTH] User not found:', username);
@@ -186,6 +187,9 @@ export async function authenticateUser(
   return {
     id: result.id,
     username: result.username,
+    email: result.email,
+    googleId: result.googleId,
+    role: result.role,
   };
 }
 
@@ -195,7 +199,7 @@ export async function getUserByGoogleId(
   googleId: string
 ): Promise<User | null> {
   const result = await db.prepare(
-    'SELECT id, username, email, google_id as googleId FROM users WHERE google_id = ?'
+    'SELECT id, username, email, google_id as googleId, role FROM users WHERE google_id = ?'
   ).bind(googleId).first<User>();
 
   return result || null;
@@ -227,9 +231,9 @@ export async function createGoogleUser(
   }
 
   const result = await db.prepare(
-    `INSERT INTO users (username, email, google_id, password_hash)
-     VALUES (?, ?, ?, NULL)
-     RETURNING id, username, email, google_id as googleId`
+    `INSERT INTO users (username, email, google_id, password_hash, role)
+     VALUES (?, ?, ?, NULL, 'user')
+     RETURNING id, username, email, google_id as googleId, role`
   ).bind(finalUsername, email, googleId).first<User>();
 
   if (!result) {
@@ -255,4 +259,21 @@ export async function findOrCreateGoogleUser(
 
   // Create new user
   return await createGoogleUser(db, googleId, email, name);
+}
+
+// Authorization helpers
+export function isAdmin(user: User): boolean {
+  return user.role === 'admin';
+}
+
+export function canModifyPost(user: User, postUserId: number | null): boolean {
+  // Admins can modify any post
+  if (isAdmin(user)) return true;
+
+  // Users can only modify their own posts
+  return postUserId === user.id;
+}
+
+export function canViewAllPosts(user: User): boolean {
+  return isAdmin(user);
 }

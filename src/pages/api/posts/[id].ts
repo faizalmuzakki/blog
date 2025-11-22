@@ -1,7 +1,7 @@
 // Posts API routes - Get, Update, Delete by ID
 
 import type { APIRoute } from 'astro';
-import { getUserBySession } from '../../../lib/auth';
+import { getUserBySession, canModifyPost } from '../../../lib/auth';
 import { getPostById, updatePost, deletePost, generateSlug, slugExists } from '../../../lib/db';
 
 // GET - Get single post by ID
@@ -88,6 +88,23 @@ export const PUT: APIRoute = async ({ params, request, locals, cookies }) => {
       );
     }
 
+    // Check if post exists and user can modify it
+    const existingPost = await getPostById(db, id);
+
+    if (!existingPost) {
+      return new Response(
+        JSON.stringify({ error: 'Post not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!canModifyPost(user, existingPost.userId)) {
+      return new Response(
+        JSON.stringify({ error: 'Forbidden: You do not have permission to modify this post' }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { title, slug, description, content, isPrivate, privatePassword, heroImage } = await request.json();
 
     // If title changed, regenerate slug
@@ -159,6 +176,23 @@ export const DELETE: APIRoute = async ({ params, locals, cookies }) => {
       return new Response(
         JSON.stringify({ error: 'Invalid post ID' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check if post exists and user can modify it
+    const existingPost = await getPostById(db, id);
+
+    if (!existingPost) {
+      return new Response(
+        JSON.stringify({ error: 'Post not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!canModifyPost(user, existingPost.userId)) {
+      return new Response(
+        JSON.stringify({ error: 'Forbidden: You do not have permission to delete this post' }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
       );
     }
 

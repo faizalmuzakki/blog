@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash TEXT, -- NULL for OAuth users
   email TEXT UNIQUE, -- For OAuth users
   google_id TEXT UNIQUE, -- Google OAuth ID
+  role TEXT DEFAULT 'user', -- 'admin' or 'user'
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

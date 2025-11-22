@@ -71,6 +71,28 @@ export async function getAllPosts(db: D1Database): Promise<Post[]> {
   }));
 }
 
+// Get posts by user ID - for regular users
+export async function getPostsByUser(db: D1Database, userId: number): Promise<Post[]> {
+  const result = await db.prepare(
+    `SELECT
+      p.id, p.title, p.slug, p.description, p.content,
+      p.is_private as isPrivate, p.private_password as privatePassword,
+      p.hero_image as heroImage, p.created_at as createdAt,
+      p.updated_at as updatedAt, p.user_id as userId,
+      u.username as authorUsername
+    FROM posts p
+    LEFT JOIN users u ON p.user_id = u.id
+    WHERE p.user_id = ?
+    ORDER BY p.created_at DESC`
+  ).bind(userId).all<Post>();
+
+  // Convert isPrivate from integer to boolean
+  return (result.results || []).map(post => ({
+    ...post,
+    isPrivate: Boolean(post.isPrivate)
+  }));
+}
+
 // Get post by slug
 export async function getPostBySlug(db: D1Database, slug: string): Promise<Post | null> {
   const result = await db.prepare(

@@ -1,8 +1,8 @@
 ---
 // Admin dashboard
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { getUserBySession } from '../../lib/auth';
-import { getAllPosts } from '../../lib/db';
+import { getUserBySession, canViewAllPosts, canModifyPost } from '../../lib/auth';
+import { getAllPosts, getPostsByUser } from '../../lib/db';
 
 // Check authentication
 const sessionCookie = Astro.cookies.get('session');
@@ -17,8 +17,11 @@ if (!user) {
   return Astro.redirect('/admin/login');
 }
 
-// Get all posts
-const posts = await getAllPosts(db);
+// Get posts based on user role
+// Admins see all posts, regular users see only their own posts
+const posts = canViewAllPosts(user)
+  ? await getAllPosts(db)
+  : await getPostsByUser(db, user.id);
 ---
 
 <BaseLayout title="Admin Dashboard" description="Manage your blog posts">
@@ -45,7 +48,7 @@ const posts = await getAllPosts(db);
   </div>
 
   <section>
-    <h2>All Posts ({posts.length})</h2>
+    <h2>{canViewAllPosts(user) ? 'All Posts' : 'My Posts'} ({posts.length})</h2>
 
     {posts.length === 0 && (
       <p style="color: rgb(var(--gray)); font-style: italic; margin-top: 1.5rem;">
@@ -84,22 +87,24 @@ const posts = await getAllPosts(db);
               </a>
             </p>
           </div>
-          <div style="display: flex; gap: 0.5rem; margin-left: 1rem;">
-            <a
-              href={`/admin/edit/${post.id}`}
-              style="padding: 0.5rem 1rem; background: var(--accent); color: white; border-radius: 4px; font-size: 0.9rem; cursor: pointer; font-weight: 600; text-decoration: none; white-space: nowrap;"
-            >
-              Edit
-            </a>
-            <button
-              class="delete-btn"
-              data-id={post.id}
-              data-title={post.title}
-              style="padding: 0.5rem 1rem; background: #dc2626; color: white; border: none; border-radius: 4px; font-size: 0.9rem; cursor: pointer; font-weight: 600; white-space: nowrap;"
-            >
-              Delete
-            </button>
-          </div>
+          {canModifyPost(user, post.userId) && (
+            <div style="display: flex; gap: 0.5rem; margin-left: 1rem;">
+              <a
+                href={`/admin/edit/${post.id}`}
+                style="padding: 0.5rem 1rem; background: var(--accent); color: white; border-radius: 4px; font-size: 0.9rem; cursor: pointer; font-weight: 600; text-decoration: none; white-space: nowrap;"
+              >
+                Edit
+              </a>
+              <button
+                class="delete-btn"
+                data-id={post.id}
+                data-title={post.title}
+                style="padding: 0.5rem 1rem; background: #dc2626; color: white; border: none; border-radius: 4px; font-size: 0.9rem; cursor: pointer; font-weight: 600; white-space: nowrap;"
+              >
+                Delete
+              </button>
+            </div>
+          )}
         </div>
       ))}
     </div>
