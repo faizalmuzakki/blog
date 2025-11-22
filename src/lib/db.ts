@@ -40,7 +40,11 @@ export async function getPublicPosts(db: D1Database): Promise<Post[]> {
     ORDER BY created_at DESC`
   ).all<Post>();
 
-  return result.results || [];
+  // Convert isPrivate from integer to boolean
+  return (result.results || []).map(post => ({
+    ...post,
+    isPrivate: Boolean(post.isPrivate)
+  }));
 }
 
 // Get all posts (including private) - for admin
@@ -55,7 +59,11 @@ export async function getAllPosts(db: D1Database): Promise<Post[]> {
     ORDER BY created_at DESC`
   ).all<Post>();
 
-  return result.results || [];
+  // Convert isPrivate from integer to boolean
+  return (result.results || []).map(post => ({
+    ...post,
+    isPrivate: Boolean(post.isPrivate)
+  }));
 }
 
 // Get post by slug
@@ -70,7 +78,13 @@ export async function getPostBySlug(db: D1Database, slug: string): Promise<Post 
     WHERE slug = ?`
   ).bind(slug).first<Post>();
 
-  return result || null;
+  if (!result) return null;
+
+  // Convert isPrivate from integer to boolean
+  return {
+    ...result,
+    isPrivate: Boolean(result.isPrivate)
+  };
 }
 
 // Get post by ID
@@ -85,7 +99,13 @@ export async function getPostById(db: D1Database, id: number): Promise<Post | nu
     WHERE id = ?`
   ).bind(id).first<Post>();
 
-  return result || null;
+  if (!result) return null;
+
+  // Convert isPrivate from integer to boolean
+  return {
+    ...result,
+    isPrivate: Boolean(result.isPrivate)
+  };
 }
 
 // Create a new post
@@ -118,7 +138,11 @@ export async function createPost(db: D1Database, post: PostInput): Promise<Post>
     throw new Error('Failed to create post');
   }
 
-  return result;
+  // Convert isPrivate from integer to boolean
+  return {
+    ...result,
+    isPrivate: Boolean(result.isPrivate)
+  };
 }
 
 // Update a post
@@ -167,7 +191,11 @@ export async function updatePost(
     throw new Error('Failed to update post');
   }
 
-  return result;
+  // Convert isPrivate from integer to boolean
+  return {
+    ...result,
+    isPrivate: Boolean(result.isPrivate)
+  };
 }
 
 // Delete a post
@@ -186,7 +214,7 @@ export function generateSlug(title: string): string {
 // Check if slug exists
 export async function slugExists(db: D1Database, slug: string, excludeId?: number): Promise<boolean> {
   let query = 'SELECT COUNT(*) as count FROM posts WHERE slug = ?';
-  const params = [slug];
+  const params: (string | number)[] = [slug];
 
   if (excludeId) {
     query += ' AND id != ?';

@@ -6,7 +6,10 @@
     "dev": "astro dev",
     "start": "astro dev",
     "build": "astro build",
-    "preview": "astro preview"
+    "preview": "astro preview",
+    "deploy": "astro build && wrangler pages deploy",
+    "db:pull": "./sync-db.sh pull",
+    "db:push": "./sync-db.sh push"
   },
   "dependencies": {
     "@astrojs/rss": "^4.0.0",

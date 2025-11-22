@@ -66,6 +66,37 @@ npm run dev
 
 Visit `http://localhost:4321/admin/login` and use the default credentials above.
 
+## Common Workflows
+
+### Working with Production Data Locally
+
+```bash
+# Pull latest data from production
+npm run db:pull
+
+# Start dev server
+npm run dev
+
+# Make changes and test locally...
+```
+
+### Deploying Changes
+
+```bash
+# Build and deploy to Cloudflare Pages
+npm run deploy
+
+# If you made database changes locally that you want in production
+npm run db:push  # ⚠️ Use with caution!
+```
+
+### Updating Production Database Only
+
+```bash
+# Update password or make other DB changes
+wrangler d1 execute blog-db --file=./your-changes.sql --remote
+```
+
 ## Project Structure
 
 ```
@@ -227,25 +258,39 @@ Uses local D1 database. All data is stored locally in `.wrangler/state/v3/d1`.
 npm run dev
 ```
 
-### Syncing Remote Database to Local
+### Syncing Databases
 
-If you want to test with production data locally, sync the remote database to your local environment:
+Since direct remote D1 connection isn't supported in local dev, use these scripts to sync data:
+
+#### Pull from Remote (Production → Local)
+
+Download production data to test locally:
 
 ```bash
-# Export from remote
-wrangler d1 export blog-db --remote --output=remote-backup.sql
-
-# Clear local database
-wrangler d1 execute blog-db --command "DROP TABLE IF EXISTS sessions; DROP TABLE IF EXISTS posts; DROP TABLE IF EXISTS users;"
-
-# Import remote data to local
-wrangler d1 execute blog-db --file=remote-backup.sql
-
-# Clean up
-rm remote-backup.sql
+npm run db:pull
 ```
 
-After syncing, use regular `npm run dev` to run locally with the synced data.
+This will:
+1. Export your remote database
+2. Clear your local database
+3. Import the remote data locally
+
+After pulling, use `npm run dev` to work with production data locally.
+
+#### Push to Remote (Local → Production)
+
+⚠️ **Warning:** This overwrites your production database!
+
+```bash
+npm run db:push
+```
+
+This will:
+1. Export your local database
+2. Clear your remote database
+3. Import the local data to production
+
+Use this carefully when you've made local changes you want to deploy.
 
 ### Production
 
@@ -319,6 +364,9 @@ export default defineConfig({
 | `npm run dev`     | Start local dev server at `localhost:4321`   |
 | `npm run build`   | Build production site to `./dist/`           |
 | `npm run preview` | Preview build locally before deploying       |
+| `npm run deploy`  | Build and deploy to Cloudflare Pages         |
+| `npm run db:pull` | Sync remote database to local                |
+| `npm run db:push` | Sync local database to remote (⚠️ overwrites production) |
 | `./setup-d1.sh`   | Set up Cloudflare D1 database               |
 
 ## Wrangler Commands

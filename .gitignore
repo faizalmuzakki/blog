@@ -26,4 +26,7 @@ pnpm-debug.log*
 *.swo
 *~
 
+# Database backups
 update-password.sql
+db-backup.sql
+remote-backup.sql
