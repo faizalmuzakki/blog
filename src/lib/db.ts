@@ -30,8 +30,9 @@ export interface PostInput {
 
 // Get all public posts
 export async function getPublicPosts(db: D1Database): Promise<Post[]> {
-  const result = await db.prepare(
-    `SELECT
+  const result = await db
+    .prepare(
+      `SELECT
       p.id, p.title, p.slug, p.description, p.content,
       p.is_private as isPrivate, p.private_password as privatePassword,
       p.hero_image as heroImage, p.created_at as createdAt,
@@ -40,20 +41,22 @@ export async function getPublicPosts(db: D1Database): Promise<Post[]> {
     FROM posts p
     LEFT JOIN users u ON p.user_id = u.id
     WHERE p.is_private = 0
-    ORDER BY p.created_at DESC`
-  ).all<Post>();
+    ORDER BY p.created_at DESC`,
+    )
+    .all<Post>();
 
   // Convert isPrivate from integer to boolean
-  return (result.results || []).map(post => ({
+  return (result.results || []).map((post) => ({
     ...post,
-    isPrivate: Boolean(post.isPrivate)
+    isPrivate: Boolean(post.isPrivate),
   }));
 }
 
 // Get all posts (including private) - for admin
 export async function getAllPosts(db: D1Database): Promise<Post[]> {
-  const result = await db.prepare(
-    `SELECT
+  const result = await db
+    .prepare(
+      `SELECT
       p.id, p.title, p.slug, p.description, p.content,
       p.is_private as isPrivate, p.private_password as privatePassword,
       p.hero_image as heroImage, p.created_at as createdAt,
@@ -61,20 +64,22 @@ export async function getAllPosts(db: D1Database): Promise<Post[]> {
       u.username as authorUsername
     FROM posts p
     LEFT JOIN users u ON p.user_id = u.id
-    ORDER BY p.created_at DESC`
-  ).all<Post>();
+    ORDER BY p.created_at DESC`,
+    )
+    .all<Post>();
 
   // Convert isPrivate from integer to boolean
-  return (result.results || []).map(post => ({
+  return (result.results || []).map((post) => ({
     ...post,
-    isPrivate: Boolean(post.isPrivate)
+    isPrivate: Boolean(post.isPrivate),
   }));
 }
 
 // Get posts by user ID - for regular users
 export async function getPostsByUser(db: D1Database, userId: number): Promise<Post[]> {
-  const result = await db.prepare(
-    `SELECT
+  const result = await db
+    .prepare(
+      `SELECT
       p.id, p.title, p.slug, p.description, p.content,
       p.is_private as isPrivate, p.private_password as privatePassword,
       p.hero_image as heroImage, p.created_at as createdAt,
@@ -83,55 +88,63 @@ export async function getPostsByUser(db: D1Database, userId: number): Promise<Po
     FROM posts p
     LEFT JOIN users u ON p.user_id = u.id
     WHERE p.user_id = ?
-    ORDER BY p.created_at DESC`
-  ).bind(userId).all<Post>();
+    ORDER BY p.created_at DESC`,
+    )
+    .bind(userId)
+    .all<Post>();
 
   // Convert isPrivate from integer to boolean
-  return (result.results || []).map(post => ({
+  return (result.results || []).map((post) => ({
     ...post,
-    isPrivate: Boolean(post.isPrivate)
+    isPrivate: Boolean(post.isPrivate),
   }));
 }
 
 // Get post by slug
 export async function getPostBySlug(db: D1Database, slug: string): Promise<Post | null> {
-  const result = await db.prepare(
-    `SELECT
+  const result = await db
+    .prepare(
+      `SELECT
       id, title, slug, description, content,
       is_private as isPrivate, private_password as privatePassword,
       hero_image as heroImage, created_at as createdAt,
       updated_at as updatedAt, user_id as userId
     FROM posts
-    WHERE slug = ?`
-  ).bind(slug).first<Post>();
+    WHERE slug = ?`,
+    )
+    .bind(slug)
+    .first<Post>();
 
   if (!result) return null;
 
   // Convert isPrivate from integer to boolean
   return {
     ...result,
-    isPrivate: Boolean(result.isPrivate)
+    isPrivate: Boolean(result.isPrivate),
   };
 }
 
 // Get post by ID
 export async function getPostById(db: D1Database, id: number): Promise<Post | null> {
-  const result = await db.prepare(
-    `SELECT
+  const result = await db
+    .prepare(
+      `SELECT
       id, title, slug, description, content,
       is_private as isPrivate, private_password as privatePassword,
       hero_image as heroImage, created_at as createdAt,
       updated_at as updatedAt, user_id as userId
     FROM posts
-    WHERE id = ?`
-  ).bind(id).first<Post>();
+    WHERE id = ?`,
+    )
+    .bind(id)
+    .first<Post>();
 
   if (!result) return null;
 
   // Convert isPrivate from integer to boolean
   return {
     ...result,
-    isPrivate: Boolean(result.isPrivate)
+    isPrivate: Boolean(result.isPrivate),
   };
 }
 
@@ -139,27 +152,30 @@ export async function getPostById(db: D1Database, id: number): Promise<Post | nu
 export async function createPost(db: D1Database, post: PostInput): Promise<Post> {
   const now = new Date().toISOString();
 
-  const result = await db.prepare(
-    `INSERT INTO posts
+  const result = await db
+    .prepare(
+      `INSERT INTO posts
       (title, slug, description, content, is_private, private_password, hero_image, user_id, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     RETURNING
       id, title, slug, description, content,
       is_private as isPrivate, private_password as privatePassword,
       hero_image as heroImage, created_at as createdAt,
-      updated_at as updatedAt, user_id as userId`
-  ).bind(
-    post.title,
-    post.slug,
-    post.description,
-    post.content,
-    post.isPrivate ? 1 : 0,
-    post.privatePassword || null,
-    post.heroImage || null,
-    post.userId,
-    now,
-    now
-  ).first<Post>();
+      updated_at as updatedAt, user_id as userId`,
+    )
+    .bind(
+      post.title,
+      post.slug,
+      post.description,
+      post.content,
+      post.isPrivate ? 1 : 0,
+      post.privatePassword || null,
+      post.heroImage || null,
+      post.userId,
+      now,
+      now,
+    )
+    .first<Post>();
 
   if (!result) {
     throw new Error('Failed to create post');
@@ -168,7 +184,7 @@ export async function createPost(db: D1Database, post: PostInput): Promise<Post>
   // Convert isPrivate from integer to boolean
   return {
     ...result,
-    isPrivate: Boolean(result.isPrivate)
+    isPrivate: Boolean(result.isPrivate),
   };
 }
 
@@ -176,7 +192,7 @@ export async function createPost(db: D1Database, post: PostInput): Promise<Post>
 export async function updatePost(
   db: D1Database,
   id: number,
-  post: Partial<PostInput>
+  post: Partial<PostInput>,
 ): Promise<Post> {
   const now = new Date().toISOString();
 
@@ -186,8 +202,9 @@ export async function updatePost(
     throw new Error('Post not found');
   }
 
-  const result = await db.prepare(
-    `UPDATE posts SET
+  const result = await db
+    .prepare(
+      `UPDATE posts SET
       title = ?,
       slug = ?,
       description = ?,
@@ -201,18 +218,20 @@ export async function updatePost(
       id, title, slug, description, content,
       is_private as isPrivate, private_password as privatePassword,
       hero_image as heroImage, created_at as createdAt,
-      updated_at as updatedAt, user_id as userId`
-  ).bind(
-    post.title ?? currentPost.title,
-    post.slug ?? currentPost.slug,
-    post.description ?? currentPost.description,
-    post.content ?? currentPost.content,
-    post.isPrivate !== undefined ? (post.isPrivate ? 1 : 0) : currentPost.isPrivate ? 1 : 0,
-    post.privatePassword ?? currentPost.privatePassword,
-    post.heroImage ?? currentPost.heroImage,
-    now,
-    id
-  ).first<Post>();
+      updated_at as updatedAt, user_id as userId`,
+    )
+    .bind(
+      post.title ?? currentPost.title,
+      post.slug ?? currentPost.slug,
+      post.description ?? currentPost.description,
+      post.content ?? currentPost.content,
+      post.isPrivate !== undefined ? (post.isPrivate ? 1 : 0) : currentPost.isPrivate ? 1 : 0,
+      post.privatePassword ?? currentPost.privatePassword,
+      post.heroImage ?? currentPost.heroImage,
+      now,
+      id,
+    )
+    .first<Post>();
 
   if (!result) {
     throw new Error('Failed to update post');
@@ -221,7 +240,7 @@ export async function updatePost(
   // Convert isPrivate from integer to boolean
   return {
     ...result,
-    isPrivate: Boolean(result.isPrivate)
+    isPrivate: Boolean(result.isPrivate),
   };
 }
 
@@ -239,7 +258,11 @@ export function generateSlug(title: string): string {
 }
 
 // Check if slug exists
-export async function slugExists(db: D1Database, slug: string, excludeId?: number): Promise<boolean> {
+export async function slugExists(
+  db: D1Database,
+  slug: string,
+  excludeId?: number,
+): Promise<boolean> {
   let query = 'SELECT COUNT(*) as count FROM posts WHERE slug = ?';
   const params: (string | number)[] = [slug];
 
@@ -248,6 +271,9 @@ export async function slugExists(db: D1Database, slug: string, excludeId?: numbe
     params.push(excludeId);
   }
 
-  const result = await db.prepare(query).bind(...params).first<{ count: number }>();
+  const result = await db
+    .prepare(query)
+    .bind(...params)
+    .first<{ count: number }>();
   return (result?.count || 0) > 0;
 }

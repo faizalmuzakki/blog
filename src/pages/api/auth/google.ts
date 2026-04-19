@@ -7,10 +7,10 @@ export const GET: APIRoute = async ({ redirect, url }) => {
 
   if (!GOOGLE_CLIENT_ID) {
     console.error('[OAUTH] GOOGLE_CLIENT_ID not configured');
-    return new Response(
-      JSON.stringify({ error: 'Google OAuth not configured' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ error: 'Google OAuth not configured' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   // Build OAuth URL
@@ -30,7 +30,7 @@ export const GET: APIRoute = async ({ redirect, url }) => {
   const response = redirect(googleAuthUrl.toString(), 302);
   response.headers.set(
     'Set-Cookie',
-    `oauth_state=${state}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=600`
+    `oauth_state=${state}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=600`,
   );
 
   return response;

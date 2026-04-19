@@ -57,9 +57,30 @@ import DOMPurify from 'isomorphic-dompurify';
 export function renderMarkdown(src: string): string {
   const html = marked.parse(src, { gfm: true, breaks: true });
   return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: ['h1','h2','h3','h4','h5','h6','p','ul','ol','li','code','pre',
-                   'blockquote','a','img','strong','em','hr','br','span','del'],
-    ALLOWED_ATTR: ['href','src','alt','title','class'],
+    ALLOWED_TAGS: [
+      'h1',
+      'h2',
+      'h3',
+      'h4',
+      'h5',
+      'h6',
+      'p',
+      'ul',
+      'ol',
+      'li',
+      'code',
+      'pre',
+      'blockquote',
+      'a',
+      'img',
+      'strong',
+      'em',
+      'hr',
+      'br',
+      'span',
+      'del',
+    ],
+    ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class'],
   });
 }
 ```
@@ -223,16 +244,16 @@ Note: `robots.txt` is static, so the sitemap URL uses a placeholder that the use
 
 ## Component summary
 
-| Component | Responsibility | Interface |
-|-----------|---------------|-----------|
-| `src/middleware.ts` | CSRF check, session rotation, CSP header, expose `locals.user` + `locals.csrfToken` | Astro middleware contract |
-| `src/lib/auth.ts` | Password hash/verify (constant-time), session create/rotate/destroy, authorization helpers | Pure async functions |
-| `src/lib/db.ts` | D1 queries for users, posts, sessions | Typed async functions |
-| `src/lib/markdown.ts` | Sanitized markdown → HTML | `renderMarkdown(src): string` |
-| `src/lib/validation.ts` | Input length and URL protocol checks | Pure functions |
-| `src/pages/api/posts/*` | CRUD + CSRF + validation + ownership | Astro API routes |
-| `src/pages/rss.xml.ts` | RSS feed | Astro endpoint |
-| `migrations/002..004` | Schema changes (drafts, CSRF, cascade) | Wrangler SQL files |
+| Component               | Responsibility                                                                             | Interface                     |
+| ----------------------- | ------------------------------------------------------------------------------------------ | ----------------------------- |
+| `src/middleware.ts`     | CSRF check, session rotation, CSP header, expose `locals.user` + `locals.csrfToken`        | Astro middleware contract     |
+| `src/lib/auth.ts`       | Password hash/verify (constant-time), session create/rotate/destroy, authorization helpers | Pure async functions          |
+| `src/lib/db.ts`         | D1 queries for users, posts, sessions                                                      | Typed async functions         |
+| `src/lib/markdown.ts`   | Sanitized markdown → HTML                                                                  | `renderMarkdown(src): string` |
+| `src/lib/validation.ts` | Input length and URL protocol checks                                                       | Pure functions                |
+| `src/pages/api/posts/*` | CRUD + CSRF + validation + ownership                                                       | Astro API routes              |
+| `src/pages/rss.xml.ts`  | RSS feed                                                                                   | Astro endpoint                |
+| `migrations/002..004`   | Schema changes (drafts, CSRF, cascade)                                                     | Wrangler SQL files            |
 
 Each unit has one clear purpose and is testable without the others (middleware via mocked `locals`; lib via pure functions; routes by composition).
 
@@ -247,7 +268,7 @@ The new code reads columns (`status`, `csrf_token`) that don't exist yet. Migrat
    - `wrangler d1 execute blog-db --remote --file=./migrations/003_sessions_csrf.sql`
    - `wrangler d1 execute blog-db --remote --file=./migrations/004_cascade_deletes.sql`
 
-   Old columns the new code no longer references (`is_private`, `private_password`) are dropped in step 1 — the *currently deployed* code still reads them, so this is the narrow window where the live site is broken. Mitigation: pick a low-traffic moment; the window is seconds.
+   Old columns the new code no longer references (`is_private`, `private_password`) are dropped in step 1 — the _currently deployed_ code still reads them, so this is the narrow window where the live site is broken. Mitigation: pick a low-traffic moment; the window is seconds.
 
 2. Set `PUBLIC_SITE_URL` env var in Cloudflare Pages.
 3. Merge PR to main → Cloudflare Pages builds and deploys.

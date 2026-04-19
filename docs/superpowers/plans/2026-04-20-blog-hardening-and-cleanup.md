@@ -15,6 +15,7 @@
 ## File map
 
 **New files**
+
 - `migrations/002_drafts_replace_private.sql` — replace `is_private`/`private_password` with `status`
 - `migrations/002_drafts_replace_private.down.sql` — rollback
 - `migrations/003_sessions_csrf.sql` — add `csrf_token` column to sessions
@@ -36,6 +37,7 @@
 - `.env.example`
 
 **Modified files**
+
 - `schema.sql` — update to match post-migration shape for fresh installs
 - `seed.sql` — remove hardcoded admin row
 - `setup-d1.sh` — generate random admin password, print once
@@ -68,6 +70,7 @@ Work proceeds in the order below. Each task ends in a commit so that the history
 ### Task 1: Bootstrap dev tooling (lint, format, tests, type-check)
 
 **Files:**
+
 - Create: `.eslintrc.cjs`
 - Create: `.prettierrc`
 - Create: `.prettierignore`
@@ -78,6 +81,7 @@ Work proceeds in the order below. Each task ends in a commit so that the history
 - [ ] **Step 1: Install dev dependencies**
 
 Run:
+
 ```bash
 npm install -D eslint@^8 @typescript-eslint/parser@^7 @typescript-eslint/eslint-plugin@^7 eslint-plugin-astro@^0.31 prettier@^3 prettier-plugin-astro@^0.13 vitest@^1 @vitest/coverage-v8@^1 isomorphic-dompurify@^2 @astrojs/sitemap@^3 @astrojs/check@^0.5
 ```
@@ -161,9 +165,7 @@ module.exports = {
   "printWidth": 100,
   "tabWidth": 2,
   "plugins": ["prettier-plugin-astro"],
-  "overrides": [
-    { "files": "*.astro", "options": { "parser": "astro" } }
-  ]
+  "overrides": [{ "files": "*.astro", "options": { "parser": "astro" } }]
 }
 ```
 
@@ -214,6 +216,7 @@ Open `tsconfig.json`. If it doesn't already:
 - [ ] **Step 9: Run tooling smoke checks**
 
 Run:
+
 ```bash
 npm run format:check
 npm run lint
@@ -222,6 +225,7 @@ npm run test
 ```
 
 Expected:
+
 - `format:check` may fail on existing files — that's OK for this step. If it does, run `npm run format` and stage the reformat as part of this commit.
 - `lint` should pass (no lint errors yet since no new code). If the existing codebase produces lint errors, fix trivial ones inline (unused vars, `any`); if non-trivial, record them and proceed.
 - `type-check` must pass.
@@ -240,6 +244,7 @@ git commit -m "chore: add lint, format, test, type-check tooling"
 ### Task 2: Add `src/lib/validation.ts` with tests (TDD)
 
 **Files:**
+
 - Create: `src/lib/validation.ts`
 - Create: `src/lib/__tests__/validation.test.ts`
 
@@ -249,12 +254,7 @@ git commit -m "chore: add lint, format, test, type-check tooling"
 
 ```ts
 import { describe, it, expect } from 'vitest';
-import {
-  LIMITS,
-  validateLength,
-  validateHttpsUrl,
-  ValidationError,
-} from '../validation';
+import { LIMITS, validateLength, validateHttpsUrl, ValidationError } from '../validation';
 
 describe('validateLength', () => {
   it('accepts strings within the limit', () => {
@@ -381,6 +381,7 @@ git commit -m "feat: add input length and https URL validators with tests"
 ### Task 3: Add `src/lib/markdown.ts` with tests (TDD)
 
 **Files:**
+
 - Create: `src/lib/markdown.ts`
 - Create: `src/lib/__tests__/markdown.test.ts`
 
@@ -449,13 +450,36 @@ import { marked } from 'marked';
 import DOMPurify from 'isomorphic-dompurify';
 
 const ALLOWED_TAGS = [
-  'h1','h2','h3','h4','h5','h6',
-  'p','ul','ol','li','code','pre',
-  'blockquote','a','img','strong','em',
-  'hr','br','span','del','table','thead','tbody','tr','th','td',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'p',
+  'ul',
+  'ol',
+  'li',
+  'code',
+  'pre',
+  'blockquote',
+  'a',
+  'img',
+  'strong',
+  'em',
+  'hr',
+  'br',
+  'span',
+  'del',
+  'table',
+  'thead',
+  'tbody',
+  'tr',
+  'th',
+  'td',
 ];
 
-const ALLOWED_ATTR = ['href','src','alt','title','class'];
+const ALLOWED_ATTR = ['href', 'src', 'alt', 'title', 'class'];
 
 export function renderMarkdown(src: string): string {
   if (!src) return '';
@@ -481,6 +505,7 @@ git commit -m "feat: add sanitized markdown renderer with tests"
 ### Task 4: Harden `auth.ts` — constant-time compare, session rotation, CSRF token, remove debug logging
 
 **Files:**
+
 - Modify: `src/lib/auth.ts`
 - Create: `src/lib/__tests__/auth.test.ts`
 
@@ -503,7 +528,7 @@ import {
 
 const admin: User = { id: 1, username: 'admin', role: 'admin' };
 const alice: User = { id: 2, username: 'alice', role: 'user' };
-const bob:   User = { id: 3, username: 'bob',   role: 'user' };
+const bob: User = { id: 3, username: 'bob', role: 'user' };
 
 describe('constantTimeEqual', () => {
   it('returns true for identical buffers', () => {
@@ -597,7 +622,7 @@ Replace `verifyPassword` and add the helper. Show the full new region (from `buf
 // Convert ArrayBuffer to hex string
 function bufferToHex(buffer: ArrayBuffer): string {
   return Array.from(new Uint8Array(buffer))
-    .map(b => b.toString(16).padStart(2, '0'))
+    .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
 }
 
@@ -605,7 +630,7 @@ function bufferToHex(buffer: ArrayBuffer): string {
 function hexToBytes(hex: string): Uint8Array {
   const match = hex.match(/.{2}/g);
   if (!match) return new Uint8Array();
-  return new Uint8Array(match.map(byte => parseInt(byte, 16)));
+  return new Uint8Array(match.map((byte) => parseInt(byte, 16)));
 }
 
 // Constant-time byte compare. Returns true iff a and b are identical.
@@ -684,7 +709,7 @@ Add just above `createSession`:
 export function generateCsrfToken(): string {
   const array = new Uint8Array(32);
   crypto.getRandomValues(array);
-  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  return Array.from(array, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 export const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -735,7 +760,13 @@ export async function getSession(db: D1Database, sessionId: string): Promise<Ses
          FROM sessions WHERE id = ?`,
     )
     .bind(sessionId)
-    .first<{ id: string; userId: number; csrfToken: string; createdAt: string; expiresAt: string }>();
+    .first<{
+      id: string;
+      userId: number;
+      csrfToken: string;
+      createdAt: string;
+      expiresAt: string;
+    }>();
 
   if (!result) return null;
 
@@ -817,6 +848,7 @@ git commit -m "feat(auth): constant-time verify, CSRF tokens, session rotation, 
 ### Task 5: Draft/published schema migration and `db.ts` updates
 
 **Files:**
+
 - Create: `migrations/002_drafts_replace_private.sql`
 - Create: `migrations/002_drafts_replace_private.down.sql`
 - Modify: `schema.sql`
@@ -1200,6 +1232,7 @@ Expected: auth + validation + markdown + db tests all pass. Type-check may still
 - [ ] **Step 7: Apply migration locally**
 
 Run:
+
 ```bash
 wrangler d1 execute blog-db --local --file=./migrations/002_drafts_replace_private.sql
 ```
@@ -1218,6 +1251,7 @@ git commit -m "feat(posts): replace private posts with draft/published status"
 ### Task 6: Sessions CSRF column + cascade deletes migrations
 
 **Files:**
+
 - Create: `migrations/003_sessions_csrf.sql`
 - Create: `migrations/004_cascade_deletes.sql`
 - Modify: `schema.sql`
@@ -1323,6 +1357,7 @@ Schema for posts was updated in Task 5 step 3 with the cascade already in place 
 - [ ] **Step 4: Apply migrations locally**
 
 Run:
+
 ```bash
 wrangler d1 execute blog-db --local --file=./migrations/003_sessions_csrf.sql
 wrangler d1 execute blog-db --local --file=./migrations/004_cascade_deletes.sql
@@ -1342,6 +1377,7 @@ git commit -m "feat(db): add csrf_token to sessions, cascade delete posts/sessio
 ### Task 7: Middleware — session load, rotation, CSRF, CSP
 
 **Files:**
+
 - Create: `src/middleware.ts`
 - Create: `src/env.d.ts` (if doesn't exist, otherwise modify)
 
@@ -1373,12 +1409,7 @@ If a `src/env.d.ts` already exists, merge — don't clobber the `runtime` typing
 
 ```ts
 import { defineMiddleware } from 'astro:middleware';
-import {
-  getUserBySession,
-  getSession,
-  rotateSessionIfStale,
-  SESSION_TTL_MS,
-} from './lib/auth';
+import { getUserBySession, getSession, rotateSessionIfStale, SESSION_TTL_MS } from './lib/auth';
 
 const CSP = [
   "default-src 'self'",
@@ -1438,7 +1469,10 @@ export const onRequest = defineMiddleware(async (context, next) => {
       let formToken: string | null = null;
       if (!headerToken) {
         const ct = request.headers.get('content-type') ?? '';
-        if (ct.includes('application/x-www-form-urlencoded') || ct.includes('multipart/form-data')) {
+        if (
+          ct.includes('application/x-www-form-urlencoded') ||
+          ct.includes('multipart/form-data')
+        ) {
           const clone = request.clone();
           const form = await clone.formData();
           formToken = typeof form.get('_csrf') === 'string' ? (form.get('_csrf') as string) : null;
@@ -1478,6 +1512,7 @@ git commit -m "feat(middleware): session rotation, CSRF enforcement, CSP header"
 ### Task 8: Update API routes for CSRF, validation, status
 
 **Files:**
+
 - Modify: `src/pages/api/login.ts`
 - Modify: `src/pages/api/logout.ts`
 - Modify: `src/pages/api/posts/index.ts`
@@ -1487,6 +1522,7 @@ git commit -m "feat(middleware): session rotation, CSRF enforcement, CSP header"
 - [ ] **Step 1: Read current API routes**
 
 Run:
+
 ```bash
 cat src/pages/api/login.ts src/pages/api/logout.ts src/pages/api/posts/index.ts src/pages/api/posts/\[id\].ts src/pages/api/auth/google/callback.ts
 ```
@@ -1785,6 +1821,7 @@ Import `SESSION_TTL_MS` alongside `createSession`.
 - [ ] **Step 7: Type-check and test**
 
 Run:
+
 ```bash
 npm run type-check
 npm test
@@ -1804,6 +1841,7 @@ git commit -m "feat(api): CSRF enforcement, input validation, draft/published st
 ### Task 9: Update admin and blog pages for status model, CSRF tokens, sanitized markdown
 
 **Files:**
+
 - Modify: `src/pages/index.astro`
 - Modify: `src/pages/blog/[slug].astro`
 - Modify: `src/pages/admin/login.astro`
@@ -1826,13 +1864,17 @@ const posts = await getPublishedPosts(db);
 ---
 
 <BaseLayout title="Blog">
-  {posts.map((post) => (
-    <article>
-      <h2><a href={`/blog/${post.slug}`}>{post.title}</a></h2>
-      {post.authorUsername && <p class="author">by {post.authorUsername}</p>}
-      <div set:html={renderMarkdown(post.description)} />
-    </article>
-  ))}
+  {
+    posts.map((post) => (
+      <article>
+        <h2>
+          <a href={`/blog/${post.slug}`}>{post.title}</a>
+        </h2>
+        {post.authorUsername && <p class="author">by {post.authorUsername}</p>}
+        <div set:html={renderMarkdown(post.description)} />
+      </article>
+    ))
+  }
 </BaseLayout>
 ```
 
@@ -1945,7 +1987,8 @@ const csrfToken = Astro.locals.csrfToken!;
     <label>Description <textarea name="description" required maxlength="500"></textarea></label>
     <label>Content <textarea name="content" required maxlength="100000"></textarea></label>
     <label>Hero image URL <input name="heroImage" type="url" pattern="https://.*" /></label>
-    <label>Status
+    <label
+      >Status
       <select name="status">
         <option value="draft" selected>Draft</option>
         <option value="published">Published</option>
@@ -1997,10 +2040,24 @@ const csrfToken = Astro.locals.csrfToken!;
   <form id="edit-post-form" data-id={post.id}>
     <input type="hidden" name="_csrf" value={csrfToken} />
     <label>Title <input name="title" required maxlength="200" value={post.title} /></label>
-    <label>Description <textarea name="description" required maxlength="500">{post.description}</textarea></label>
-    <label>Content <textarea name="content" required maxlength="100000">{post.content}</textarea></label>
-    <label>Hero image URL <input name="heroImage" type="url" pattern="https://.*" value={post.heroImage ?? ''} /></label>
-    <label>Status
+    <label
+      >Description <textarea name="description" required maxlength="500"
+        >{post.description}</textarea
+      ></label
+    >
+    <label
+      >Content <textarea name="content" required maxlength="100000">{post.content}</textarea></label
+    >
+    <label
+      >Hero image URL <input
+        name="heroImage"
+        type="url"
+        pattern="https://.*"
+        value={post.heroImage ?? ''}
+      /></label
+    >
+    <label
+      >Status
       <select name="status">
         <option value="draft" selected={post.status === 'draft'}>Draft</option>
         <option value="published" selected={post.status === 'published'}>Published</option>
@@ -2031,6 +2088,7 @@ const csrfToken = Astro.locals.csrfToken!;
 - [ ] **Step 7: Type-check + tests + dev smoke test**
 
 Run:
+
 ```bash
 npm run type-check
 npm test
@@ -2054,6 +2112,7 @@ git commit -m "feat(pages): status dropdown, CSRF tokens in forms, sanitized mar
 ### Task 10: Remove default admin credentials — setup script + seed
 
 **Files:**
+
 - Modify: `seed.sql`
 - Modify: `setup-d1.sh`
 - Modify: `README.md` (credentials section only — rest of README updated in Task 13)
@@ -2095,21 +2154,23 @@ Find the block under "Default Login Credentials" and replace with:
 ### Admin credentials
 
 `./setup-d1.sh` generates a random admin password on first run and prints it once:
-
 ```
-⚠️  Save this password now — it will not be shown again.
 
-   Username: admin
-   Password: <generated>
-```
+⚠️ Save this password now — it will not be shown again.
+
+Username: admin
+Password: <generated>
+
+````
 
 Store the password in a password manager. If you lose it, generate a new hash with `node generate-password.js <new-password>` and update the row:
 
 ```bash
 wrangler d1 execute blog-db --remote \
   --command "UPDATE users SET password_hash = '<new-hash>' WHERE username = 'admin'"
-```
-```
+````
+
+````
 
 - [ ] **Step 4: Smoke test locally**
 
@@ -2117,7 +2178,7 @@ Run:
 ```bash
 # In a scratch context (don't wipe real local DB unless you want to)
 ./setup-d1.sh  # or copy its new block and run just that
-```
+````
 
 Expected: a random password is printed once.
 
@@ -2133,6 +2194,7 @@ git commit -m "feat(setup): generate random admin password on first run, remove 
 ### Task 11: RSS feed, sitemap, robots.txt
 
 **Files:**
+
 - Create: `src/pages/rss.xml.ts`
 - Create: `public/robots.txt`
 - Create: `.env.example`
@@ -2217,6 +2279,7 @@ GOOGLE_CLIENT_SECRET=
 - [ ] **Step 7: Verify build output**
 
 Run:
+
 ```bash
 PUBLIC_SITE_URL=https://example.com npm run build
 ```
@@ -2226,6 +2289,7 @@ Expected: `dist/` contains `sitemap-index.xml` and `sitemap-0.xml`. No errors.
 - [ ] **Step 8: Smoke test RSS in dev**
 
 Run:
+
 ```bash
 npm run dev &
 sleep 3
@@ -2267,6 +2331,7 @@ npm run dev
 ```
 
 In a browser:
+
 - `/` loads (home page).
 - `/rss.xml` loads.
 - `/admin/login` with password fails cleanly with 401 on wrong creds.
@@ -2303,6 +2368,7 @@ git commit -m "chore: fixups from final integration checks"
 ### Task 13: README cleanup
 
 **Files:**
+
 - Modify: `README.md`
 
 - [ ] **Step 1: Replace the "Features" block**
@@ -2339,11 +2405,11 @@ Add before "Troubleshooting":
 
 Rate limiting is configured in the Cloudflare dashboard, not in the app. Recommended rules for this blog:
 
-| Path | Limit | Action |
-|------|-------|--------|
-| `/api/login` | 10 requests / minute / IP | Block for 10 minutes |
+| Path                        | Limit                     | Action               |
+| --------------------------- | ------------------------- | -------------------- |
+| `/api/login`                | 10 requests / minute / IP | Block for 10 minutes |
 | `/api/auth/google/callback` | 20 requests / minute / IP | Block for 10 minutes |
-| `/api/posts` (POST) | 30 requests / minute / IP | Challenge |
+| `/api/posts` (POST)         | 30 requests / minute / IP | Challenge            |
 
 Add these in **Security > WAF > Rate limiting rules** for the production zone.
 ```
@@ -2353,20 +2419,20 @@ Add these in **Security > WAF > Rate limiting rules** for the production zone.
 Update the commands table:
 
 ```markdown
-| Command             | Action                                       |
-|:--------------------|:---------------------------------------------|
-| `npm install`       | Install dependencies                         |
-| `npm run dev`       | Start local dev server at `localhost:4321`   |
-| `npm run build`     | Build production site to `./dist/`           |
-| `npm run preview`   | Preview build locally before deploying       |
-| `npm run deploy`    | Build and deploy to Cloudflare Pages         |
-| `npm run lint`      | Lint all `.ts` and `.astro` files            |
-| `npm run format`    | Format all files with Prettier               |
-| `npm run type-check`| Run `astro check`                            |
-| `npm test`          | Run Vitest unit tests                        |
-| `npm run db:pull`   | Sync remote database to local                |
-| `npm run db:push`   | Sync local database to remote (⚠️ overwrites)|
-| `./setup-d1.sh`     | Create D1 DB, apply schema, generate admin password |
+| Command              | Action                                              |
+| :------------------- | :-------------------------------------------------- |
+| `npm install`        | Install dependencies                                |
+| `npm run dev`        | Start local dev server at `localhost:4321`          |
+| `npm run build`      | Build production site to `./dist/`                  |
+| `npm run preview`    | Preview build locally before deploying              |
+| `npm run deploy`     | Build and deploy to Cloudflare Pages                |
+| `npm run lint`       | Lint all `.ts` and `.astro` files                   |
+| `npm run format`     | Format all files with Prettier                      |
+| `npm run type-check` | Run `astro check`                                   |
+| `npm test`           | Run Vitest unit tests                               |
+| `npm run db:pull`    | Sync remote database to local                       |
+| `npm run db:push`    | Sync local database to remote (⚠️ overwrites)       |
+| `./setup-d1.sh`      | Create D1 DB, apply schema, generate admin password |
 ```
 
 - [ ] **Step 5: Document `PUBLIC_SITE_URL`**
@@ -2395,7 +2461,7 @@ Edit `public/robots.txt` and replace `REPLACE-WITH-YOUR-DOMAIN` with your actual
 
 Replace with:
 
-```markdown
+````markdown
 ## Migration order (this release)
 
 Before pushing the updated code to production, run migrations on the remote D1 in order:
@@ -2405,16 +2471,18 @@ wrangler d1 execute blog-db --remote --file=./migrations/002_drafts_replace_priv
 wrangler d1 execute blog-db --remote --file=./migrations/003_sessions_csrf.sql
 wrangler d1 execute blog-db --remote --file=./migrations/004_cascade_deletes.sql
 ```
+````
 
 Existing sessions are invalidated by migration 003. Users will need to log in again.
-```
+
+````
 
 - [ ] **Step 8: Commit**
 
 ```bash
 git add README.md
 git commit -m "docs: update README for draft/published, CSRF, rate-limiting, new scripts"
-```
+````
 
 ---
 

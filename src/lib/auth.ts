@@ -20,18 +20,20 @@ export interface Session {
 export function generateSessionId(): string {
   const array = new Uint8Array(32);
   crypto.getRandomValues(array);
-  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  return Array.from(array, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 // Convert string to Uint8Array
-function stringToUint8Array(str: string): Uint8Array {
-  return new TextEncoder().encode(str);
+function stringToUint8Array(str: string): Uint8Array<ArrayBuffer> {
+  const encoded = new TextEncoder().encode(str);
+  return new Uint8Array(encoded.buffer as ArrayBuffer);
 }
 
 // Convert ArrayBuffer to hex string
-function bufferToHex(buffer: ArrayBuffer): string {
-  return Array.from(new Uint8Array(buffer))
-    .map(b => b.toString(16).padStart(2, '0'))
+function bufferToHex(buffer: ArrayBuffer | Uint8Array): string {
+  const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
 }
 
@@ -45,7 +47,7 @@ export async function hashPassword(password: string): Promise<string> {
     stringToUint8Array(password),
     'PBKDF2',
     false,
-    ['deriveBits']
+    ['deriveBits'],
   );
 
   const derivedBits = await crypto.subtle.deriveBits(
@@ -53,10 +55,10 @@ export async function hashPassword(password: string): Promise<string> {
       name: 'PBKDF2',
       salt: salt,
       iterations: iterations,
-      hash: 'SHA-256'
+      hash: 'SHA-256',
     },
     keyMaterial,
-    256
+    256,
   );
 
   // Format: iterations$salt$hash
@@ -73,7 +75,7 @@ export async function verifyPassword(password: string, storedHash: string): Prom
     if (parts.length !== 3) return false;
 
     const iterations = parseInt(parts[0]);
-    const salt = new Uint8Array(parts[1].match(/.{2}/g)?.map(byte => parseInt(byte, 16)) || []);
+    const salt = new Uint8Array(parts[1].match(/.{2}/g)?.map((byte) => parseInt(byte, 16)) || []);
     const storedHashBytes = parts[2];
 
     const keyMaterial = await crypto.subtle.importKey(
@@ -81,7 +83,7 @@ export async function verifyPassword(password: string, storedHash: string): Prom
       stringToUint8Array(password),
       'PBKDF2',
       false,
-      ['deriveBits']
+      ['deriveBits'],
     );
 
     const derivedBits = await crypto.subtle.deriveBits(
@@ -89,10 +91,10 @@ export async function verifyPassword(password: string, storedHash: string): Prom
         name: 'PBKDF2',
         salt: salt,
         iterations: iterations,
-        hash: 'SHA-256'
+        hash: 'SHA-256',
       },
       keyMaterial,
-      256
+      256,
     );
 
     const hashHex = bufferToHex(derivedBits);
@@ -111,18 +113,20 @@ export async function createSession(db: D1Database, userId: number): Promise<str
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 7); // Session expires in 7 days
 
-  await db.prepare(
-    'INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)'
-  ).bind(sessionId, userId, expiresAt.toISOString()).run();
+  await db
+    .prepare('INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)')
+    .bind(sessionId, userId, expiresAt.toISOString())
+    .run();
 
   return sessionId;
 }
 
 // Get session from database
 export async function getSession(db: D1Database, sessionId: string): Promise<Session | null> {
-  const result = await db.prepare(
-    'SELECT id, user_id as userId, expires_at as expiresAt FROM sessions WHERE id = ?'
-  ).bind(sessionId).first<{ id: string; userId: number; expiresAt: string }>();
+  const result = await db
+    .prepare('SELECT id, user_id as userId, expires_at as expiresAt FROM sessions WHERE id = ?')
+    .bind(sessionId)
+    .first<{ id: string; userId: number; expiresAt: string }>();
 
   if (!result) return null;
 
@@ -151,9 +155,10 @@ export async function getUserBySession(db: D1Database, sessionId: string): Promi
   const session = await getSession(db, sessionId);
   if (!session) return null;
 
-  const result = await db.prepare(
-    'SELECT id, username, email, google_id as googleId, role FROM users WHERE id = ?'
-  ).bind(session.userId).first<User>();
+  const result = await db
+    .prepare('SELECT id, username, email, google_id as googleId, role FROM users WHERE id = ?')
+    .bind(session.userId)
+    .first<User>();
 
   return result || null;
 }
@@ -162,25 +167,28 @@ export async function getUserBySession(db: D1Database, sessionId: string): Promi
 export async function authenticateUser(
   db: D1Database,
   username: string,
-  password: string
+  password: string,
 ): Promise<User | null> {
-  console.log('[AUTH] Looking up user:', username);
+  console.warn('[AUTH] Looking up user:', username);
 
-  const result = await db.prepare(
-    'SELECT id, username, email, google_id as googleId, role, password_hash as passwordHash FROM users WHERE username = ?'
-  ).bind(username).first<User & { passwordHash: string }>();
+  const result = await db
+    .prepare(
+      'SELECT id, username, email, google_id as googleId, role, password_hash as passwordHash FROM users WHERE username = ?',
+    )
+    .bind(username)
+    .first<User & { passwordHash: string }>();
 
   if (!result) {
-    console.log('[AUTH] User not found:', username);
+    console.warn('[AUTH] User not found:', username);
     return null;
   }
 
-  console.log('[AUTH] User found, verifying password...');
-  console.log('[AUTH] Stored hash:', result.passwordHash);
+  console.warn('[AUTH] User found, verifying password...');
+  console.warn('[AUTH] Stored hash:', result.passwordHash);
 
   const isValid = await verifyPassword(password, result.passwordHash);
 
-  console.log('[AUTH] Password valid:', isValid);
+  console.warn('[AUTH] Password valid:', isValid);
 
   if (!isValid) return null;
 
@@ -194,13 +202,13 @@ export async function authenticateUser(
 }
 
 // Find user by Google ID
-export async function getUserByGoogleId(
-  db: D1Database,
-  googleId: string
-): Promise<User | null> {
-  const result = await db.prepare(
-    'SELECT id, username, email, google_id as googleId, role FROM users WHERE google_id = ?'
-  ).bind(googleId).first<User>();
+export async function getUserByGoogleId(db: D1Database, googleId: string): Promise<User | null> {
+  const result = await db
+    .prepare(
+      'SELECT id, username, email, google_id as googleId, role FROM users WHERE google_id = ?',
+    )
+    .bind(googleId)
+    .first<User>();
 
   return result || null;
 }
@@ -210,31 +218,36 @@ export async function createGoogleUser(
   db: D1Database,
   googleId: string,
   email: string,
-  name: string
+  _name: string,
 ): Promise<User> {
-  // Generate username from email or name
-  let username = email.split('@')[0];
+  // Generate username from email
+  const username = email.split('@')[0];
 
   // Check if username exists and make it unique if needed
   let finalUsername = username;
   let counter = 1;
+  let existing = await db
+    .prepare('SELECT id FROM users WHERE username = ?')
+    .bind(finalUsername)
+    .first();
 
-  while (true) {
-    const existing = await db.prepare(
-      'SELECT id FROM users WHERE username = ?'
-    ).bind(finalUsername).first();
-
-    if (!existing) break;
-
+  while (existing) {
     finalUsername = `${username}${counter}`;
     counter++;
+    existing = await db
+      .prepare('SELECT id FROM users WHERE username = ?')
+      .bind(finalUsername)
+      .first();
   }
 
-  const result = await db.prepare(
-    `INSERT INTO users (username, email, google_id, password_hash, role)
+  const result = await db
+    .prepare(
+      `INSERT INTO users (username, email, google_id, password_hash, role)
      VALUES (?, ?, ?, NULL, 'user')
-     RETURNING id, username, email, google_id as googleId, role`
-  ).bind(finalUsername, email, googleId).first<User>();
+     RETURNING id, username, email, google_id as googleId, role`,
+    )
+    .bind(finalUsername, email, googleId)
+    .first<User>();
 
   if (!result) {
     throw new Error('Failed to create Google user');
@@ -248,7 +261,7 @@ export async function findOrCreateGoogleUser(
   db: D1Database,
   googleId: string,
   email: string,
-  name: string
+  name: string,
 ): Promise<User> {
   // Try to find existing user by Google ID
   const existingUser = await getUserByGoogleId(db, googleId);

@@ -9,7 +9,10 @@ const publicPosts = await getPublicPosts(db);
 const siteTitle = 'Solork Blog';
 ---
 
-<BaseLayout title={siteTitle} description="Welcome to solork blog where I share my thoughts and ideas">
+<BaseLayout
+  title={siteTitle}
+  description="Welcome to solork blog where I share my thoughts and ideas"
+>
   <article>
     <h1>Welcome to Solork Blog</h1>
     <p style="margin-bottom: 2rem; color: rgb(var(--gray));">
@@ -18,36 +21,36 @@ const siteTitle = 'Solork Blog';
 
     <section>
       <h2>Recent Posts</h2>
-      {publicPosts.length === 0 && (
-        <p style="color: rgb(var(--gray)); font-style: italic;">
-          No posts yet. Check back soon!
-        </p>
-      )}
-      <ul style="list-style: none; display: flex; flex-direction: column; gap: 2rem; margin-top: 1.5rem;">
-        {publicPosts.map((post) => (
-          <li style="padding: 1.5rem; background: white; border-radius: 8px; box-shadow: var(--box-shadow);">
-            <a href={`/blog/${post.slug}/`} style="text-decoration: none;">
-              <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem; color: var(--accent);">
-                {post.title}
-              </h3>
-              <div style="color: rgb(var(--gray)); font-size: 0.9rem;">
-                <time>
-                  {new Date(post.createdAt).toLocaleDateString('en-us', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                  })}
-                </time>
-                {post.authorUsername && (
-                  <span> • by {post.authorUsername}</span>
-                )}
-              </div>
-              <p style="margin-top: 0.75rem; color: rgb(var(--gray-dark));">
-                {post.description}
-              </p>
-            </a>
-          </li>
-        ))}
+      {
+        publicPosts.length === 0 && (
+          <p style="color: rgb(var(--gray)); font-style: italic;">No posts yet. Check back soon!</p>
+        )
+      }
+      <ul
+        style="list-style: none; display: flex; flex-direction: column; gap: 2rem; margin-top: 1.5rem;"
+      >
+        {
+          publicPosts.map((post) => (
+            <li style="padding: 1.5rem; background: white; border-radius: 8px; box-shadow: var(--box-shadow);">
+              <a href={`/blog/${post.slug}/`} style="text-decoration: none;">
+                <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem; color: var(--accent);">
+                  {post.title}
+                </h3>
+                <div style="color: rgb(var(--gray)); font-size: 0.9rem;">
+                  <time>
+                    {new Date(post.createdAt).toLocaleDateString('en-us', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                  </time>
+                  {post.authorUsername && <span> • by {post.authorUsername}</span>}
+                </div>
+                <p style="margin-top: 0.75rem; color: rgb(var(--gray-dark));">{post.description}</p>
+              </a>
+            </li>
+          ))
+        }
       </ul>
     </section>
   </article>

@@ -92,7 +92,7 @@ export const GET: APIRoute = async ({ url, cookies, locals, redirect }) => {
 
     const userInfo: GoogleUserInfo = await userInfoResponse.json();
 
-    console.log('[OAUTH] User info received:', {
+    console.warn('[OAUTH] User info received:', {
       sub: userInfo.sub,
       email: userInfo.email,
       name: userInfo.name,
@@ -100,14 +100,9 @@ export const GET: APIRoute = async ({ url, cookies, locals, redirect }) => {
 
     // Find or create user in database
     const db = locals.runtime.env.DB;
-    const user = await findOrCreateGoogleUser(
-      db,
-      userInfo.sub,
-      userInfo.email,
-      userInfo.name
-    );
+    const user = await findOrCreateGoogleUser(db, userInfo.sub, userInfo.email, userInfo.name);
 
-    console.log('[OAUTH] User found/created:', user.username);
+    console.warn('[OAUTH] User found/created:', user.username);
 
     // Create session
     const sessionId = await createSession(db, user.id);

@@ -66,12 +66,14 @@ wrangler login
 ```
 
 This script will:
+
 - Create your D1 database
 - Set up the schema (users, posts, sessions tables)
 - Insert seed data with default admin user
 - Update your wrangler.toml with the database ID
 
 **Default Login Credentials:**
+
 - Username: `admin`
 - Password: `admin123`
 
@@ -90,11 +92,13 @@ Visit `http://localhost:4321/admin/login` and use the default credentials above.
 To enable Google sign-in, follow the detailed guide in [`GOOGLE_OAUTH_SETUP.md`](./GOOGLE_OAUTH_SETUP.md).
 
 **Quick steps:**
+
 1. Create OAuth credentials in [Google Cloud Console](https://console.cloud.google.com/)
 2. Add credentials to `.dev.vars` for local development
 3. Add credentials to Cloudflare Pages environment variables for production
 
 **Local development (`.dev.vars`):**
+
 ```env
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-client-secret
@@ -151,6 +155,7 @@ wrangler d1 execute blog-db --remote --file=./migrations/001_add_oauth_support.s
 ```
 
 This migration adds:
+
 - `email` column for OAuth users
 - `google_id` column for Google user IDs
 - `role` column for access control
@@ -186,6 +191,7 @@ wrangler d1 execute blog-db --remote --file=./migrations/001_add_oauth_support.s
 4. **Add Google OAuth environment variables** (if using OAuth)
 
 In Cloudflare Pages dashboard:
+
 - Settings > Environment variables
 - Add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
 
@@ -199,18 +205,21 @@ git push origin main
 ## User Roles & Permissions
 
 ### Admin Role
+
 - See all posts from all users
 - Edit and delete any post
 - Full access to admin dashboard
 - Existing users are set to admin by default
 
 ### User Role
+
 - See only their own posts
 - Edit and delete only their own posts
 - Cannot modify other users' posts
 - New Google OAuth users get this role
 
 ### How Roles are Assigned
+
 - **Existing users** (before migration): Automatically set to `admin`
 - **New Google OAuth users**: Created as `user`
 - **New username/password users**: Currently created as `user` (can be changed in code)
@@ -314,11 +323,13 @@ npm run db:push
 ### Login
 
 **Option 1: Username/Password**
+
 1. Visit `/admin/login`
 2. Enter username and password
 3. Click "Login"
 
 **Option 2: Google OAuth**
+
 1. Visit `/admin/login`
 2. Click "Sign in with Google"
 3. Authorize with your Google account
@@ -340,10 +351,12 @@ npm run db:push
 ### Edit/Delete Posts
 
 **As Admin:**
+
 - See all posts from all users
 - Can edit/delete any post
 
 **As Regular User:**
+
 - See only your own posts
 - Can edit/delete only your posts
 - Edit/delete buttons hidden for others' posts
@@ -355,6 +368,7 @@ Click the "Logout" button in the top-right corner of the admin dashboard.
 ## Database Schema
 
 ### Users Table
+
 - `id` - Primary key
 - `username` - Unique username
 - `password_hash` - PBKDF2 hashed password (NULL for OAuth users)
@@ -364,6 +378,7 @@ Click the "Logout" button in the top-right corner of the admin dashboard.
 - `created_at` - Timestamp
 
 ### Posts Table
+
 - `id` - Primary key
 - `title` - Post title
 - `slug` - URL-friendly slug (auto-generated)
@@ -377,6 +392,7 @@ Click the "Logout" button in the top-right corner of the admin dashboard.
 - `user_id` - Foreign key to users (author)
 
 ### Sessions Table
+
 - `id` - Session ID (primary key)
 - `user_id` - Foreign key to users
 - `expires_at` - Expiration timestamp (7 days)
@@ -385,12 +401,14 @@ Click the "Logout" button in the top-right corner of the admin dashboard.
 ## API Endpoints
 
 ### Authentication
+
 - `POST /api/login` - Username/password login
 - `POST /api/logout` - Logout (clears session)
 - `GET /api/auth/google` - Initiate Google OAuth flow
 - `GET /api/auth/google/callback` - OAuth callback handler
 
 ### Posts
+
 - `GET /api/posts` - List posts (filtered by role)
 - `POST /api/posts` - Create new post (requires auth)
 - `GET /api/posts/:id` - Get single post (requires auth)
@@ -402,12 +420,13 @@ Click the "Logout" button in the top-right corner of the admin dashboard.
 ### Helper Functions
 
 ```typescript
-isAdmin(user) // Check if user has admin role
-canModifyPost(user, postUserId) // Check if user can edit/delete post
-canViewAllPosts(user) // Check if user can see all posts
+isAdmin(user); // Check if user has admin role
+canModifyPost(user, postUserId); // Check if user can edit/delete post
+canViewAllPosts(user); // Check if user can see all posts
 ```
 
 ### API Authorization
+
 - **GET /api/posts** - Returns all posts for admins, only user's posts for regular users
 - **PUT /api/posts/:id** - Returns 403 if user doesn't own post (unless admin)
 - **DELETE /api/posts/:id** - Returns 403 if user doesn't own post (unless admin)
@@ -434,16 +453,16 @@ wrangler d1 execute blog-db --remote \
 
 ## Commands
 
-| Command           | Action                                       |
-|:------------------|:---------------------------------------------|
-| `npm install`     | Install dependencies                         |
-| `npm run dev`     | Start local dev server at `localhost:4321`   |
-| `npm run build`   | Build production site to `./dist/`           |
-| `npm run preview` | Preview build locally before deploying       |
-| `npm run deploy`  | Build and deploy to Cloudflare Pages         |
-| `npm run db:pull` | Sync remote database to local                |
+| Command           | Action                                                   |
+| :---------------- | :------------------------------------------------------- |
+| `npm install`     | Install dependencies                                     |
+| `npm run dev`     | Start local dev server at `localhost:4321`               |
+| `npm run build`   | Build production site to `./dist/`                       |
+| `npm run preview` | Preview build locally before deploying                   |
+| `npm run deploy`  | Build and deploy to Cloudflare Pages                     |
+| `npm run db:pull` | Sync remote database to local                            |
 | `npm run db:push` | Sync local database to remote (⚠️ overwrites production) |
-| `./setup-d1.sh`   | Set up Cloudflare D1 database               |
+| `./setup-d1.sh`   | Set up Cloudflare D1 database                            |
 
 ## Wrangler Commands
 
@@ -492,12 +511,14 @@ wrangler d1 execute blog-db --remote --file=./migrations/001_add_oauth_support.s
 ### "DB is not defined" error
 
 **Solution:** Configure D1 binding in Cloudflare Pages:
+
 1. Settings > Functions > D1 database bindings
 2. Add binding: Variable name `DB`, Database `blog-db`
 
 ### Can't login after migration
 
 **Solution:** Run the migration to add the role column:
+
 ```bash
 wrangler d1 execute blog-db --remote --file=./migrations/001_add_oauth_support.sql
 ```
@@ -505,6 +526,7 @@ wrangler d1 execute blog-db --remote --file=./migrations/001_add_oauth_support.s
 ### Google OAuth not working
 
 **Solutions:**
+
 1. Check environment variables are set in Cloudflare Pages
 2. Verify redirect URIs in Google Cloud Console match your domain
 3. Ensure callback URL is: `https://yourdomain.com/api/auth/google/callback`
@@ -514,6 +536,7 @@ wrangler d1 execute blog-db --remote --file=./migrations/001_add_oauth_support.s
 **Expected behavior:** Regular users can only edit their own posts. Admins can edit any post.
 
 **To make a user admin:**
+
 ```bash
 wrangler d1 execute blog-db --remote \
   --command "UPDATE users SET role = 'admin' WHERE username = 'username'"
@@ -522,6 +545,7 @@ wrangler d1 execute blog-db --remote \
 ### Changes not appearing in production
 
 **Solutions:**
+
 1. Check Cloudflare Pages deployment logs
 2. Ensure you committed and pushed changes
 3. Verify D1 binding is configured
@@ -549,6 +573,7 @@ MIT
 ## Support
 
 For issues with:
+
 - **Astro**: [Astro Discord](https://astro.build/chat) or [Astro Docs](https://docs.astro.build)
 - **Cloudflare D1**: [Cloudflare Discord](https://discord.gg/cloudflaredev) or [D1 Docs](https://developers.cloudflare.com/d1/)
 - **Google OAuth**: [GOOGLE_OAUTH_SETUP.md](./GOOGLE_OAUTH_SETUP.md)

@@ -11,7 +11,7 @@ function stringToUint8Array(str) {
 // Convert ArrayBuffer to hex string
 function bufferToHex(buffer) {
   return Array.from(new Uint8Array(buffer))
-    .map(b => b.toString(16).padStart(2, '0'))
+    .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
 }
 
@@ -25,7 +25,7 @@ async function hashPassword(password) {
     stringToUint8Array(password),
     'PBKDF2',
     false,
-    ['deriveBits']
+    ['deriveBits'],
   );
 
   const derivedBits = await crypto.subtle.deriveBits(
@@ -33,10 +33,10 @@ async function hashPassword(password) {
       name: 'PBKDF2',
       salt: salt,
       iterations: iterations,
-      hash: 'SHA-256'
+      hash: 'SHA-256',
     },
     keyMaterial,
-    256
+    256,
   );
 
   // Format: iterations$salt$hash
@@ -47,16 +47,18 @@ async function hashPassword(password) {
 }
 
 // Run the hash
-hashPassword(password).then(hash => {
-  console.log('\n=================================');
-  console.log('Password Hash Generated');
-  console.log('=================================');
-  console.log(`Password: ${password}`);
-  console.log(`Hash: ${hash}`);
-  console.log('\nAdd this to your seed.sql file:');
-  console.log(`INSERT INTO users (username, password_hash) VALUES ('admin', '${hash}');`);
-  console.log('=================================\n');
-}).catch(err => {
-  console.error('Error generating hash:', err);
-  process.exit(1);
-});
+hashPassword(password)
+  .then((hash) => {
+    console.log('\n=================================');
+    console.log('Password Hash Generated');
+    console.log('=================================');
+    console.log(`Password: ${password}`);
+    console.log(`Hash: ${hash}`);
+    console.log('\nAdd this to your seed.sql file:');
+    console.log(`INSERT INTO users (username, password_hash) VALUES ('admin', '${hash}');`);
+    console.log('=================================\n');
+  })
+  .catch((err) => {
+    console.error('Error generating hash:', err);
+    process.exit(1);
+  });

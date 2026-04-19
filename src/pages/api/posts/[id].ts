@@ -10,50 +10,50 @@ export const GET: APIRoute = async ({ params, locals, cookies }) => {
     const sessionId = cookies.get('session')?.value;
 
     if (!sessionId) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     const db = locals.runtime.env.DB;
     const user = await getUserBySession(db, sessionId);
 
     if (!user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     const id = parseInt(params.id || '');
 
     if (isNaN(id)) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid post ID' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Invalid post ID' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     const post = await getPostById(db, id);
 
     if (!post) {
-      return new Response(
-        JSON.stringify({ error: 'Post not found' }),
-        { status: 404, headers: { 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Post not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
-    return new Response(
-      JSON.stringify({ post }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ post }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     console.error('Get post error:', error);
-    return new Response(
-      JSON.stringify({ error: 'An error occurred while fetching the post' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ error: 'An error occurred while fetching the post' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 };
 
@@ -63,49 +63,58 @@ export const PUT: APIRoute = async ({ params, request, locals, cookies }) => {
     const sessionId = cookies.get('session')?.value;
 
     if (!sessionId) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     const db = locals.runtime.env.DB;
     const user = await getUserBySession(db, sessionId);
 
     if (!user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     const id = parseInt(params.id || '');
 
     if (isNaN(id)) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid post ID' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Invalid post ID' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     // Check if post exists and user can modify it
     const existingPost = await getPostById(db, id);
 
     if (!existingPost) {
-      return new Response(
-        JSON.stringify({ error: 'Post not found' }),
-        { status: 404, headers: { 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Post not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     if (!canModifyPost(user, existingPost.userId)) {
       return new Response(
         JSON.stringify({ error: 'Forbidden: You do not have permission to modify this post' }),
-        { status: 403, headers: { 'Content-Type': 'application/json' } }
+        { status: 403, headers: { 'Content-Type': 'application/json' } },
       );
     }
 
-    const { title, slug, description, content, isPrivate, privatePassword, heroImage } = await request.json();
+    const { title, slug, description, content, isPrivate, privatePassword, heroImage } =
+      (await request.json()) as {
+        title: string;
+        slug: string;
+        description: string;
+        content: string;
+        isPrivate: boolean;
+        privatePassword: string;
+        heroImage: string;
+      };
 
     // If title changed, regenerate slug
     let updatedSlug = slug;
@@ -135,16 +144,16 @@ export const PUT: APIRoute = async ({ params, request, locals, cookies }) => {
       userId: user.id,
     });
 
-    return new Response(
-      JSON.stringify({ post }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ post }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     console.error('Update post error:', error);
-    return new Response(
-      JSON.stringify({ error: 'An error occurred while updating the post' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ error: 'An error occurred while updating the post' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 };
 
@@ -154,59 +163,59 @@ export const DELETE: APIRoute = async ({ params, locals, cookies }) => {
     const sessionId = cookies.get('session')?.value;
 
     if (!sessionId) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     const db = locals.runtime.env.DB;
     const user = await getUserBySession(db, sessionId);
 
     if (!user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     const id = parseInt(params.id || '');
 
     if (isNaN(id)) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid post ID' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Invalid post ID' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     // Check if post exists and user can modify it
     const existingPost = await getPostById(db, id);
 
     if (!existingPost) {
-      return new Response(
-        JSON.stringify({ error: 'Post not found' }),
-        { status: 404, headers: { 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Post not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     if (!canModifyPost(user, existingPost.userId)) {
       return new Response(
         JSON.stringify({ error: 'Forbidden: You do not have permission to delete this post' }),
-        { status: 403, headers: { 'Content-Type': 'application/json' } }
+        { status: 403, headers: { 'Content-Type': 'application/json' } },
       );
     }
 
     await deletePost(db, id);
 
-    return new Response(
-      JSON.stringify({ success: true }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     console.error('Delete post error:', error);
-    return new Response(
-      JSON.stringify({ error: 'An error occurred while deleting the post' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ error: 'An error occurred while deleting the post' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 };

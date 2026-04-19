@@ -9,15 +9,32 @@
     "preview": "astro preview",
     "deploy": "astro build && wrangler pages deploy",
     "db:pull": "./sync-db.sh pull",
-    "db:push": "./sync-db.sh push"
+    "db:push": "./sync-db.sh push",
+    "lint": "eslint . --ext .ts,.astro --max-warnings 0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "type-check": "astro check",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@astrojs/rss": "^4.0.0",
+    "@astrojs/sitemap": "^3.7.2",
     "astro": "^4.0.0",
+    "isomorphic-dompurify": "^2.36.0",
     "marked": "^11.0.0"
   },
   "devDependencies": {
+    "@astrojs/check": "^0.5.10",
     "@astrojs/cloudflare": "^11.0.0",
-    "typescript": "^5.3.0"
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "@vitest/coverage-v8": "^1.6.1",
+    "eslint": "^8.57.1",
+    "eslint-plugin-astro": "^0.31.4",
+    "prettier": "^3.8.3",
+    "prettier-plugin-astro": "^0.13.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.6.1"
   }
 }

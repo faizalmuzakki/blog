@@ -10,37 +10,35 @@ export const GET: APIRoute = async ({ locals, cookies }) => {
     const sessionId = cookies.get('session')?.value;
 
     if (!sessionId) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     const db = locals.runtime.env.DB;
     const user = await getUserBySession(db, sessionId);
 
     if (!user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     // Admins see all posts, regular users see only their own posts
-    const posts = canViewAllPosts(user)
-      ? await getAllPosts(db)
-      : await getPostsByUser(db, user.id);
+    const posts = canViewAllPosts(user) ? await getAllPosts(db) : await getPostsByUser(db, user.id);
 
-    return new Response(
-      JSON.stringify({ posts }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ posts }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     console.error('Get posts error:', error);
-    return new Response(
-      JSON.stringify({ error: 'An error occurred while fetching posts' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ error: 'An error occurred while fetching posts' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 };
 
@@ -50,28 +48,36 @@ export const POST: APIRoute = async ({ request, locals, cookies }) => {
     const sessionId = cookies.get('session')?.value;
 
     if (!sessionId) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     const db = locals.runtime.env.DB;
     const user = await getUserBySession(db, sessionId);
 
     if (!user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
-    const { title, description, content, isPrivate, privatePassword, heroImage } = await request.json();
+    const { title, description, content, isPrivate, privatePassword, heroImage } =
+      (await request.json()) as {
+        title: string;
+        description: string;
+        content: string;
+        isPrivate: boolean;
+        privatePassword: string;
+        heroImage: string;
+      };
 
     if (!title || !description || !content) {
       return new Response(
         JSON.stringify({ error: 'Title, description, and content are required' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { status: 400, headers: { 'Content-Type': 'application/json' } },
       );
     }
 
@@ -95,20 +101,20 @@ export const POST: APIRoute = async ({ request, locals, cookies }) => {
       description,
       content,
       isPrivate: isPrivate || false,
-      privatePassword: privatePassword || null,
-      heroImage: heroImage || null,
+      privatePassword: privatePassword || undefined,
+      heroImage: heroImage || undefined,
       userId: user.id,
     });
 
-    return new Response(
-      JSON.stringify({ post }),
-      { status: 201, headers: { 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ post }), {
+      status: 201,
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     console.error('Create post error:', error);
-    return new Response(
-      JSON.stringify({ error: 'An error occurred while creating the post' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ error: 'An error occurred while creating the post' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 };

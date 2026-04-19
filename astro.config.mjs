@@ -7,7 +7,7 @@ export default defineConfig({
   output: 'server', // SSR mode for dynamic content and authentication
   adapter: cloudflare({
     platformProxy: {
-      enabled: true
-    }
+      enabled: true,
+    },
   }),
 });

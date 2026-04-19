@@ -24,7 +24,9 @@ if (!user) {
 
   <form id="post-form" style="max-width: 800px;">
     <div style="margin-bottom: 1.5rem;">
-      <label for="title" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Title *</label>
+      <label for="title" style="display: block; margin-bottom: 0.5rem; font-weight: 600;"
+        >Title *</label
+      >
       <input
         type="text"
         id="title"
@@ -35,7 +37,9 @@ if (!user) {
     </div>
 
     <div style="margin-bottom: 1.5rem;">
-      <label for="description" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Description *</label>
+      <label for="description" style="display: block; margin-bottom: 0.5rem; font-weight: 600;"
+        >Description *</label
+      >
       <input
         type="text"
         id="description"
@@ -47,19 +51,22 @@ if (!user) {
     </div>
 
     <div style="margin-bottom: 1.5rem;">
-      <label for="content" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Content * (Markdown supported)</label>
+      <label for="content" style="display: block; margin-bottom: 0.5rem; font-weight: 600;"
+        >Content * (Markdown supported)</label
+      >
       <textarea
         id="content"
         name="content"
         required
         rows="20"
         style="width: 100%; padding: 0.75rem; border: 2px solid rgb(var(--gray-light)); border-radius: 4px; font-size: 1rem; font-family: 'Courier New', Courier, monospace; line-height: 1.6;"
-        placeholder="Write your post content in Markdown..."
-      ></textarea>
+        placeholder="Write your post content in Markdown..."></textarea>
     </div>
 
     <div style="margin-bottom: 1.5rem;">
-      <label for="heroImage" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Hero Image URL</label>
+      <label for="heroImage" style="display: block; margin-bottom: 0.5rem; font-weight: 600;"
+        >Hero Image URL</label
+      >
       <input
         type="url"
         id="heroImage"
@@ -82,7 +89,9 @@ if (!user) {
     </div>
 
     <div id="private-password-field" style="margin-bottom: 1.5rem; display: none;">
-      <label for="privatePassword" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Private Post Password</label>
+      <label for="privatePassword" style="display: block; margin-bottom: 0.5rem; font-weight: 600;"
+        >Private Post Password</label
+      >
       <input
         type="text"
         id="privatePassword"
@@ -117,7 +126,9 @@ if (!user) {
     const form = document.getElementById('post-form') as HTMLFormElement;
     const errorMessage = document.getElementById('error-message') as HTMLParagraphElement;
     const isPrivateCheckbox = document.getElementById('isPrivate') as HTMLInputElement;
-    const privatePasswordField = document.getElementById('private-password-field') as HTMLDivElement;
+    const privatePasswordField = document.getElementById(
+      'private-password-field',
+    ) as HTMLDivElement;
 
     // Show/hide password field based on checkbox
     isPrivateCheckbox?.addEventListener('change', () => {
@@ -155,7 +166,7 @@ if (!user) {
           }),
         });
 
-        const data = await response.json();
+        const data = (await response.json()) as { error?: string };
 
         if (response.ok) {
           // Redirect to admin dashboard

@@ -78,6 +78,7 @@ Add to your `wrangler.toml`:
 ```
 
 Then set secrets via CLI:
+
 ```bash
 wrangler secret put GOOGLE_CLIENT_ID
 wrangler secret put GOOGLE_CLIENT_SECRET
@@ -96,6 +97,7 @@ wrangler d1 execute blog-db --local --file=./migrations/001_add_oauth_support.sq
 ```
 
 Or manually run the SQL:
+
 ```sql
 ALTER TABLE users ADD COLUMN email TEXT UNIQUE;
 ALTER TABLE users ADD COLUMN google_id TEXT UNIQUE;
@@ -132,13 +134,16 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 ## Troubleshooting
 
 ### "Google OAuth not configured" error
+
 - Make sure `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` environment variables are set
 
 ### "redirect_uri_mismatch" error
+
 - Verify that the redirect URI in your Google Cloud Console matches exactly: `https://yourdomain.com/api/auth/google/callback`
 - Make sure the protocol (http vs https) matches
 
 ### User created but can't see posts
+
 - This is normal for OAuth users - they have read/write access to the blog
 - All authenticated users can create posts
 
