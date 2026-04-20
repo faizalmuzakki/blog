@@ -169,8 +169,6 @@ export async function authenticateUser(
   username: string,
   password: string,
 ): Promise<User | null> {
-  console.warn('[AUTH] Looking up user:', username);
-
   const result = await db
     .prepare(
       'SELECT id, username, email, google_id as googleId, role, password_hash as passwordHash FROM users WHERE username = ?',
@@ -178,17 +176,9 @@ export async function authenticateUser(
     .bind(username)
     .first<User & { passwordHash: string }>();
 
-  if (!result) {
-    console.warn('[AUTH] User not found:', username);
-    return null;
-  }
-
-  console.warn('[AUTH] User found, verifying password...');
-  console.warn('[AUTH] Stored hash:', result.passwordHash);
+  if (!result) return null;
 
   const isValid = await verifyPassword(password, result.passwordHash);
-
-  console.warn('[AUTH] Password valid:', isValid);
 
   if (!isValid) return null;
 
