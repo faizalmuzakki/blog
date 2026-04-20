@@ -1381,7 +1381,9 @@ git commit -m "feat(db): add csrf_token to sessions, cascade delete posts/sessio
 - Create: `src/middleware.ts`
 - Create: `src/env.d.ts` (if doesn't exist, otherwise modify)
 
-- [ ] **Step 1: Write `src/env.d.ts`**
+- [ ] **Step 1: Extend `src/env.d.ts`**
+
+Task 1 already created `src/env.d.ts` with a baseline `App.Locals` containing `runtime.env.DB`. Open that file and make the final shape match:
 
 ```ts
 /// <reference path="../.astro/types.d.ts" />
@@ -1403,7 +1405,7 @@ declare namespace App {
 }
 ```
 
-If a `src/env.d.ts` already exists, merge — don't clobber the `runtime` typing the project already depends on.
+Preserve any additional bindings already declared.
 
 - [ ] **Step 2: Write `src/middleware.ts`**
 
