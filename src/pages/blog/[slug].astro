@@ -1,7 +1,7 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getPostBySlug } from '../../lib/db';
-import { marked } from 'marked';
+import { renderMarkdown } from '../../lib/markdown';
 
 // Get slug from params
 const { slug } = Astro.params;
@@ -12,54 +12,23 @@ if (!slug) {
 
 // Get post from D1 database
 const db = Astro.locals.runtime.env.DB;
+const user = Astro.locals.user;
 const post = await getPostBySlug(db, slug);
 
-if (!post) {
-  return Astro.redirect('/');
+const canSee =
+  post &&
+  (post.status === 'published' || (user && (user.role === 'admin' || user.id === post.userId)));
+
+if (!canSee) {
+  return new Response('Not found', { status: 404 });
 }
 
-// Convert markdown content to HTML
-const contentHtml = marked(post.content);
-
-// Check if the post is a draft (was: isPrivate) — TODO(Task 9): remove password-gate UI entirely
-const isPrivate = post.status !== 'published';
-// privatePassword removed in migration 002; bridge value keeps client script compilable
-const privatePassword = 'DRAFT';
+// Convert markdown content to sanitized HTML
+const contentHtml = renderMarkdown(post.content);
 ---
 
 <BaseLayout title={post.title} description={post.description}>
-  {
-    isPrivate && (
-      <div
-        id="password-gate"
-        style="max-width: 500px; margin: 3rem auto; padding: 2rem; background: white; border-radius: 8px; box-shadow: var(--box-shadow);"
-      >
-        <h2>This is a Private Post</h2>
-        <p style="margin: 1rem 0; color: rgb(var(--gray));">
-          Please enter the password to view this content.
-        </p>
-        <form id="password-form">
-          <input
-            type="password"
-            id="password-input"
-            placeholder="Enter password"
-            style="width: 100%; padding: 0.75rem; border: 2px solid rgb(var(--gray-light)); border-radius: 4px; font-size: 1rem; margin-bottom: 1rem;"
-          />
-          <button
-            type="submit"
-            style="width: 100%; padding: 0.75rem; background: var(--accent); color: white; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer; font-weight: 600;"
-          >
-            Access Post
-          </button>
-        </form>
-        <p id="error-message" style="color: #dc2626; margin-top: 1rem; display: none;">
-          Incorrect password. Please try again.
-        </p>
-      </div>
-    )
-  }
-
-  <article id="blog-content" style={isPrivate ? 'display: none;' : ''}>
+  <article id="blog-content">
     <div style="margin-bottom: 2rem;">
       {
         post.heroImage && (
@@ -164,25 +133,4 @@ const privatePassword = 'DRAFT';
       color: var(--accent-dark);
     }
   </style>
-
-  <script define:vars={{ privatePassword, isPrivate }}>
-    if (isPrivate) {
-      const form = document.getElementById('password-form');
-      const input = document.getElementById('password-input');
-      const errorMessage = document.getElementById('error-message');
-      const passwordGate = document.getElementById('password-gate');
-      const blogContent = document.getElementById('blog-content');
-
-      form?.addEventListener('submit', (e) => {
-        e.preventDefault();
-        if (input?.value === privatePassword) {
-          passwordGate.style.display = 'none';
-          blogContent.style.display = 'block';
-          errorMessage.style.display = 'none';
-        } else {
-          errorMessage.style.display = 'block';
-        }
-      });
-    }
-  </script>
 </BaseLayout>

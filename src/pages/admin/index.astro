@@ -1,21 +1,14 @@
 ---
 // Admin dashboard
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { getUserBySession, canViewAllPosts, canModifyPost } from '../../lib/auth';
+import { canViewAllPosts, canModifyPost } from '../../lib/auth';
 import { getAllPosts, getPostsByUser } from '../../lib/db';
 
-// Check authentication
-const sessionCookie = Astro.cookies.get('session');
-if (!sessionCookie?.value) {
-  return Astro.redirect('/admin/login');
-}
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/admin/login');
 
 const db = Astro.locals.runtime.env.DB;
-const user = await getUserBySession(db, sessionCookie.value);
-
-if (!user) {
-  return Astro.redirect('/admin/login');
-}
+const csrfToken = Astro.locals.csrfToken ?? '';
 
 // Get posts based on user role
 // Admins see all posts, regular users see only their own posts
@@ -23,6 +16,7 @@ const posts = canViewAllPosts(user) ? await getAllPosts(db) : await getPostsByUs
 ---
 
 <BaseLayout title="Admin Dashboard" description="Manage your blog posts">
+  <input type="hidden" id="csrf-token" value={csrfToken} />
   <div
     style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; padding-bottom: 1rem; border-bottom: 2px solid rgb(var(--gray-light));"
   >
@@ -129,6 +123,8 @@ const posts = canViewAllPosts(user) ? await getAllPosts(db) : await getPostsByUs
     });
 
     // Delete functionality
+    const csrfToken =
+      (document.getElementById('csrf-token') as HTMLInputElement | null)?.value ?? '';
     const deleteButtons = document.querySelectorAll('.delete-btn');
     deleteButtons.forEach((btn) => {
       btn.addEventListener('click', async (e) => {
@@ -143,6 +139,7 @@ const posts = canViewAllPosts(user) ? await getAllPosts(db) : await getPostsByUs
         try {
           const response = await fetch(`/api/posts/${id}`, {
             method: 'DELETE',
+            headers: { 'x-csrf-token': csrfToken },
           });
 
           if (response.ok) {

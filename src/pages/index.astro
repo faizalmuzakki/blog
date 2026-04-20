@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { getPublishedPosts } from '../lib/db';
+import { renderMarkdown } from '../lib/markdown';
 
 // Get all public blog posts from D1 database
 const db = Astro.locals.runtime.env.DB;
@@ -46,7 +47,10 @@ const siteTitle = 'Solork Blog';
                   </time>
                   {post.authorUsername && <span> • by {post.authorUsername}</span>}
                 </div>
-                <p style="margin-top: 0.75rem; color: rgb(var(--gray-dark));">{post.description}</p>
+                <div
+                  style="margin-top: 0.75rem; color: rgb(var(--gray-dark));"
+                  set:html={renderMarkdown(post.description)}
+                />
               </a>
             </li>
           ))
