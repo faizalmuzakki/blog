@@ -4,10 +4,14 @@
 
 declare namespace App {
   interface Locals {
+    user: import('./lib/auth').User | null;
+    csrfToken: string | null;
     runtime: {
       env: {
-        DB: D1Database;
-        [key: string]: unknown;
+        DB: import('@cloudflare/workers-types').D1Database;
+        GOOGLE_CLIENT_ID?: string;
+        GOOGLE_CLIENT_SECRET?: string;
+        PUBLIC_SITE_URL?: string;
       };
     };
   }
