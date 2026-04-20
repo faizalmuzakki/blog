@@ -3,4 +3,4 @@ Allow: /
 Disallow: /admin/
 Disallow: /api/
 
-Sitemap: https://REPLACE-WITH-YOUR-DOMAIN/sitemap-index.xml
+Sitemap: https://blog.solork.dev/sitemap-index.xml
