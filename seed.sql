@@ -1,5 +1,4 @@
 -- Seed data for Blog
--- Note: Admin user is created by setup-d1.sh script using setup-admin.js
 
 -- Insert sample blog posts
 INSERT OR IGNORE INTO posts (title, slug, description, content, is_private, created_at)

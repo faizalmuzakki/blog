@@ -1,17 +1,8 @@
 ---
-// Admin login page
 import BaseLayout from '../../layouts/BaseLayout.astro';
 
-// Check if already logged in
-const sessionCookie = Astro.cookies.get('session');
-if (sessionCookie?.value) {
-  const db = Astro.locals.runtime.env.DB;
-  const { getUserBySession } = await import('../../lib/auth');
-  const user = await getUserBySession(db, sessionCookie.value);
-
-  if (user) {
-    return Astro.redirect('/admin');
-  }
+if (Astro.locals.user) {
+  return Astro.redirect('/admin/');
 }
 ---
 
@@ -90,18 +81,6 @@ if (sessionCookie?.value) {
       </svg>
       Sign in with Google
     </a>
-
-    <p style="margin-top: 1.5rem; color: rgb(var(--gray)); font-size: 0.9rem;">
-      Default credentials: <br />
-      Username: <code
-        style="background: rgb(var(--gray-light)); padding: 0.2rem 0.4rem; border-radius: 4px;"
-        >admin</code
-      ><br />
-      Password: <code
-        style="background: rgb(var(--gray-light)); padding: 0.2rem 0.4rem; border-radius: 4px;"
-        >admin123</code
-      >
-    </p>
   </div>
 
   <script>
