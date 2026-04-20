@@ -1,0 +1,145 @@
+---
+import { renderMarkdown } from '../lib/markdown';
+import type { Post } from '../lib/db';
+
+interface Props {
+  post: Post;
+  siblings: Post[];
+  defaultLanguage: string;
+}
+
+const { post, siblings, defaultLanguage } = Astro.props;
+
+function urlFor(p: Post, defaultLang: string): string {
+  return p.language === defaultLang ? `/blog/${p.slug}` : `/${p.language}/blog/${p.slug}`;
+}
+
+const contentHtml = renderMarkdown(post.content);
+const otherLanguages = siblings.filter((s) => s.id !== post.id);
+---
+
+<article id="blog-content">
+  <div style="margin-bottom: 2rem;">
+    {
+      post.heroImage && (
+        <img
+          src={post.heroImage}
+          alt={post.title}
+          style="width: 100%; height: 400px; object-fit: cover; border-radius: 8px; margin-bottom: 2rem;"
+        />
+      )
+    }
+    <h1>{post.title}</h1>
+    <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+      <time style="color: rgb(var(--gray)); font-size: 0.9rem;">
+        {
+          new Date(post.createdAt).toLocaleDateString('en-us', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          })
+        }
+      </time>
+      <span style="color: rgb(var(--gray)); font-size: 0.85rem; border: 1px solid rgb(var(--gray-light)); padding: 0.1rem 0.5rem; border-radius: 999px; text-transform: uppercase;">
+        {post.language}
+      </span>
+    </div>
+    {
+      post.updatedAt && post.updatedAt !== post.createdAt && (
+        <p style="color: rgb(var(--gray)); font-size: 0.9rem; font-style: italic; margin-top: 0.25rem;">
+          Last updated:{' '}
+          {new Date(post.updatedAt).toLocaleDateString('en-us', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          })}
+        </p>
+      )
+    }
+    {
+      otherLanguages.length > 0 && (
+        <p style="margin-top: 0.75rem; color: rgb(var(--gray)); font-size: 0.9rem;">
+          Also in:{' '}
+          {otherLanguages.map((s, i) => (
+            <>
+              {i > 0 && ' · '}
+              <a href={urlFor(s, defaultLanguage)} style="color: var(--accent); text-decoration: underline;">
+                {s.language.toUpperCase()}
+              </a>
+            </>
+          ))}
+        </p>
+      )
+    }
+  </div>
+
+  <div class="prose" set:html={contentHtml} />
+</article>
+
+<style>
+  .prose {
+    line-height: 1.8;
+    max-width: 720px;
+  }
+  .prose :global(h2) {
+    font-size: 1.8rem;
+    margin-top: 2.5rem;
+    margin-bottom: 1rem;
+  }
+  .prose :global(h3) {
+    font-size: 1.4rem;
+    margin-top: 2rem;
+    margin-bottom: 0.75rem;
+  }
+  .prose :global(p) {
+    margin-bottom: 1.5rem;
+  }
+  .prose :global(ul),
+  .prose :global(ol) {
+    margin-bottom: 1.5rem;
+    padding-left: 2rem;
+  }
+  .prose :global(li) {
+    margin-bottom: 0.5rem;
+  }
+  .prose :global(code) {
+    background: rgb(var(--gray-light));
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+    font-family: 'Courier New', Courier, monospace;
+  }
+  .prose :global(pre) {
+    background: rgb(var(--gray-dark));
+    color: rgb(var(--gray-light));
+    padding: 1.5rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin-bottom: 1.5rem;
+  }
+  .prose :global(pre code) {
+    background: none;
+    padding: 0;
+    color: inherit;
+  }
+  .prose :global(blockquote) {
+    border-left: 4px solid var(--accent);
+    padding-left: 1.5rem;
+    margin: 1.5rem 0;
+    font-style: italic;
+    color: rgb(var(--gray));
+  }
+  .prose :global(img) {
+    border-radius: 8px;
+    max-width: 100%;
+    height: auto;
+    margin: 2rem 0;
+  }
+  .prose :global(a) {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+  .prose :global(a:hover) {
+    color: var(--accent-dark);
+  }
+</style>

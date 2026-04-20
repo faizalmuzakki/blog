@@ -12,6 +12,9 @@ declare namespace App {
         GOOGLE_CLIENT_ID?: string;
         GOOGLE_CLIENT_SECRET?: string;
         PUBLIC_SITE_URL?: string;
+        CLAUDE_API_URL?: string;
+        CLAUDE_API_SECRET?: string;
+        DEFAULT_LANGUAGE?: string;
       };
     };
   }

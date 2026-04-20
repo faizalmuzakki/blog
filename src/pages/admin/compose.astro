@@ -1,0 +1,475 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getComposeSession } from '../../lib/compose';
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/admin/login');
+
+const db = Astro.locals.runtime.env.DB;
+const csrfToken = Astro.locals.csrfToken ?? '';
+const defaultLanguage = Astro.locals.runtime.env.DEFAULT_LANGUAGE ?? 'en';
+
+const sessionIdParam = Astro.url.searchParams.get('session');
+const sessionId = sessionIdParam ? Number.parseInt(sessionIdParam, 10) : null;
+
+const existing =
+  sessionId && Number.isFinite(sessionId)
+    ? await getComposeSession(db, user.id, sessionId)
+    : null;
+
+const initial = existing ?? {
+  id: null as number | null,
+  originalText: '',
+  sourceLanguage: defaultLanguage,
+  targetLanguages: [defaultLanguage],
+  generatedDrafts: {} as Record<string, unknown>,
+  status: 'draft' as const,
+};
+
+const LANGUAGES = [
+  { code: 'en', label: 'English', bcp47: 'en-US' },
+  { code: 'id', label: 'Bahasa Indonesia', bcp47: 'id-ID' },
+  { code: 'ja', label: '日本語', bcp47: 'ja-JP' },
+  { code: 'ko', label: '한국어', bcp47: 'ko-KR' },
+  { code: 'zh', label: '中文', bcp47: 'zh-CN' },
+  { code: 'es', label: 'Español', bcp47: 'es-ES' },
+  { code: 'fr', label: 'Français', bcp47: 'fr-FR' },
+  { code: 'de', label: 'Deutsch', bcp47: 'de-DE' },
+];
+---
+
+<BaseLayout title="Compose with AI" description="Turn rough notes into a polished multilingual blog post">
+  <input type="hidden" id="csrf-token" value={csrfToken} />
+  <input
+    type="hidden"
+    id="initial-state"
+    value={JSON.stringify({ initial, languages: LANGUAGES })}
+  />
+
+  <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+    <div>
+      <h1 style="margin-bottom: 0.5rem;">✨ Compose with AI</h1>
+      <p style="color: rgb(var(--gray));">
+        Dump your thoughts. Pick target languages. Claude polishes and translates.
+      </p>
+    </div>
+    <a
+      href="/admin"
+      style="padding: 0.5rem 1rem; color: rgb(var(--gray-dark)); text-decoration: none;"
+      >← Back</a
+    >
+  </div>
+
+  <section
+    style="padding: 1.5rem; background: white; border-radius: 8px; box-shadow: var(--box-shadow); margin-bottom: 1.5rem;"
+  >
+    <div style="margin-bottom: 1rem;">
+      <label for="source-language" style="display: block; margin-bottom: 0.5rem; font-weight: 600;"
+        >Your notes are written in</label
+      >
+      <select
+        id="source-language"
+        style="padding: 0.5rem; border: 2px solid rgb(var(--gray-light)); border-radius: 4px; font-size: 1rem;"
+      >
+        {
+          LANGUAGES.map((l) => (
+            <option value={l.code} selected={l.code === initial.sourceLanguage}>
+              {l.label}
+            </option>
+          ))
+        }
+      </select>
+    </div>
+
+    <div style="margin-bottom: 1rem;">
+      <label for="original-text" style="display: block; margin-bottom: 0.5rem; font-weight: 600;"
+        >Your raw thoughts / notes</label
+      >
+      <textarea
+        id="original-text"
+        rows="12"
+        placeholder="Just type. No formatting. No pressure. Claude will polish it."
+        style="width: 100%; padding: 0.75rem; border: 2px solid rgb(var(--gray-light)); border-radius: 4px; font-size: 1rem; line-height: 1.6;"
+        >{initial.originalText}</textarea>
+    </div>
+
+    <div style="margin-bottom: 1rem;">
+      <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;"
+        >Target languages</label
+      >
+      <div id="lang-chips" style="display: flex; flex-wrap: wrap; gap: 0.5rem;"></div>
+    </div>
+
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+      <button
+        id="save-btn"
+        type="button"
+        style="padding: 0.6rem 1.2rem; background: rgb(var(--gray-light)); color: rgb(var(--gray-dark)); border: none; border-radius: 4px; font-weight: 600; cursor: pointer;"
+        >💾 Save draft</button
+      >
+      <button
+        id="generate-btn"
+        type="button"
+        style="padding: 0.6rem 1.2rem; background: var(--accent); color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;"
+        >🪄 Generate</button
+      >
+      <button
+        id="publish-draft-btn"
+        type="button"
+        style="padding: 0.6rem 1.2rem; background: white; color: var(--accent); border: 2px solid var(--accent); border-radius: 4px; font-weight: 600; cursor: pointer; display: none;"
+        >📄 Save as drafts</button
+      >
+      <button
+        id="publish-btn"
+        type="button"
+        style="padding: 0.6rem 1.2rem; background: #16a34a; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; display: none;"
+        >🚀 Publish all</button
+      >
+      <span id="session-status" style="color: rgb(var(--gray)); font-size: 0.9rem;"></span>
+    </div>
+
+    <p id="error-message" style="color: #dc2626; margin-top: 1rem; display: none;"></p>
+  </section>
+
+  <section id="drafts-container" style="display: flex; flex-direction: column; gap: 1.5rem;"></section>
+
+  <script>
+    type Lang = { code: string; label: string; bcp47: string };
+    type Generation = {
+      language: string;
+      title: string;
+      description: string;
+      slug: string;
+      content: string;
+    };
+    type Session = {
+      id: number | null;
+      originalText: string;
+      sourceLanguage: string;
+      targetLanguages: string[];
+      generatedDrafts: Record<string, Generation>;
+      status: string;
+    };
+
+    const stateEl = document.getElementById('initial-state') as HTMLInputElement;
+    const csrf = (document.getElementById('csrf-token') as HTMLInputElement).value;
+    const { initial, languages } = JSON.parse(stateEl.value) as {
+      initial: Session;
+      languages: Lang[];
+    };
+
+    const langByCode = new Map(languages.map((l) => [l.code, l]));
+
+    let state: Session = {
+      id: initial.id,
+      originalText: initial.originalText,
+      sourceLanguage: initial.sourceLanguage,
+      targetLanguages: initial.targetLanguages.slice(),
+      generatedDrafts: { ...initial.generatedDrafts },
+      status: initial.status,
+    };
+
+    const chipsEl = document.getElementById('lang-chips') as HTMLDivElement;
+    const originalEl = document.getElementById('original-text') as HTMLTextAreaElement;
+    const sourceLangEl = document.getElementById('source-language') as unknown as HTMLSelectElement;
+    const saveBtn = document.getElementById('save-btn') as HTMLButtonElement;
+    const genBtn = document.getElementById('generate-btn') as HTMLButtonElement;
+    const publishBtn = document.getElementById('publish-btn') as HTMLButtonElement;
+    const publishDraftBtn = document.getElementById('publish-draft-btn') as HTMLButtonElement;
+    const statusEl = document.getElementById('session-status') as HTMLSpanElement;
+    const errEl = document.getElementById('error-message') as HTMLParagraphElement;
+    const draftsEl = document.getElementById('drafts-container') as HTMLDivElement;
+
+    function updatePublishVisibility() {
+      const has = Object.keys(state.generatedDrafts).length > 0;
+      publishBtn.style.display = has ? '' : 'none';
+      publishDraftBtn.style.display = has ? '' : 'none';
+    }
+
+    function renderChips() {
+      chipsEl.innerHTML = '';
+      for (const lang of languages) {
+        const selected = state.targetLanguages.includes(lang.code);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = lang.label;
+        btn.style.cssText = `padding: 0.4rem 0.9rem; border-radius: 999px; border: 2px solid ${selected ? 'var(--accent)' : 'rgb(var(--gray-light))'}; background: ${selected ? 'var(--accent)' : 'white'}; color: ${selected ? 'white' : 'rgb(var(--gray-dark))'}; font-weight: 600; cursor: pointer; font-size: 0.9rem;`;
+        btn.addEventListener('click', () => {
+          if (selected) {
+            state.targetLanguages = state.targetLanguages.filter((c) => c !== lang.code);
+          } else {
+            state.targetLanguages = [...state.targetLanguages, lang.code];
+          }
+          renderChips();
+        });
+        chipsEl.appendChild(btn);
+      }
+    }
+
+    function setStatus(msg: string) {
+      statusEl.textContent = msg;
+    }
+    function setError(msg: string | null) {
+      if (msg) {
+        errEl.textContent = msg;
+        errEl.style.display = 'block';
+      } else {
+        errEl.style.display = 'none';
+      }
+    }
+
+    function syncStateFromInputs() {
+      state.originalText = originalEl.value;
+      state.sourceLanguage = sourceLangEl.value;
+    }
+
+    async function saveDraft(): Promise<Session | null> {
+      syncStateFromInputs();
+      setError(null);
+      setStatus('Saving…');
+      try {
+        const url =
+          state.id === null
+            ? '/api/admin/compose/sessions'
+            : `/api/admin/compose/sessions/${state.id}`;
+        const method = state.id === null ? 'POST' : 'PATCH';
+        const res = await fetch(url, {
+          method,
+          headers: { 'content-type': 'application/json', 'x-csrf-token': csrf },
+          body: JSON.stringify({
+            originalText: state.originalText,
+            sourceLanguage: state.sourceLanguage,
+            targetLanguages: state.targetLanguages,
+          }),
+        });
+        if (!res.ok) {
+          const body = (await res.json().catch(() => ({}))) as { error?: string };
+          throw new Error(body.error || `Save failed (${res.status})`);
+        }
+        const saved = (await res.json()) as Session;
+        state = { ...state, ...saved };
+        if (state.id !== null) {
+          const url = new URL(window.location.href);
+          url.searchParams.set('session', String(state.id));
+          window.history.replaceState({}, '', url.toString());
+        }
+        setStatus(`Saved • #${state.id}`);
+        return state;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Save failed');
+        setStatus('');
+        return null;
+      }
+    }
+
+    async function generate(languages?: string[]) {
+      const saved = await saveDraft();
+      if (!saved || saved.id === null) return;
+      if (!state.originalText.trim()) return setError('Write something first.');
+      if (!state.targetLanguages.length) return setError('Pick at least one target language.');
+
+      genBtn.disabled = true;
+      genBtn.textContent = '🪄 Generating…';
+      const doing = languages ?? state.targetLanguages;
+      setStatus(
+        `Claude is polishing ${doing.length} language(s). ~15–30s each. If this times out at the Cloudflare edge, regenerate one language at a time.`,
+      );
+      setError(null);
+
+      try {
+        const res = await fetch(`/api/admin/compose/sessions/${saved.id}/generate`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-csrf-token': csrf },
+          body: JSON.stringify(languages ? { languages } : {}),
+        });
+        if (!res.ok) {
+          const body = (await res.json().catch(() => ({}))) as { error?: string };
+          throw new Error(body.error || `Generate failed (${res.status})`);
+        }
+        const updated = (await res.json()) as Session;
+        state = { ...state, ...updated };
+        setStatus(`Generated ${Object.keys(state.generatedDrafts).length} version(s).`);
+        renderDrafts();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Generation failed');
+        setStatus('');
+      } finally {
+        genBtn.disabled = false;
+        genBtn.textContent = '🪄 Generate';
+      }
+    }
+
+    function renderDrafts() {
+      draftsEl.innerHTML = '';
+      updatePublishVisibility();
+      const langs = Object.keys(state.generatedDrafts);
+      if (!langs.length) return;
+      for (const code of langs) {
+        const gen = state.generatedDrafts[code];
+        const langMeta = langByCode.get(code);
+        const card = document.createElement('div');
+        card.style.cssText = 'padding: 1.5rem; background: white; border-radius: 8px; box-shadow: var(--box-shadow);';
+        card.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: 1rem; flex-wrap: wrap;">
+            <h2 style="margin: 0;">${langMeta?.label ?? code} <span style="font-size: 0.8rem; color: rgb(var(--gray)); font-weight: 400;">(${code})</span></h2>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <button type="button" data-regen="${code}" style="padding: 0.4rem 0.8rem; border: 2px solid var(--accent); background: white; color: var(--accent); border-radius: 4px; cursor: pointer; font-size: 0.9rem;">🔁 Regenerate</button>
+              <button type="button" data-speak="${code}" style="padding: 0.4rem 0.8rem; border: 2px solid rgb(var(--gray-light)); background: white; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">🔊 Speak</button>
+              <button type="button" data-stop="${code}" style="padding: 0.4rem 0.8rem; border: 2px solid rgb(var(--gray-light)); background: white; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">⏹ Stop</button>
+            </div>
+          </div>
+          <label style="display:block;font-weight:600;margin-bottom:0.25rem;">Title</label>
+          <input type="text" data-field="title" data-lang="${code}" value="" style="width:100%;padding:0.5rem;border:2px solid rgb(var(--gray-light));border-radius:4px;margin-bottom:0.75rem;font-size:1rem;" />
+          <label style="display:block;font-weight:600;margin-bottom:0.25rem;">Slug</label>
+          <input type="text" data-field="slug" data-lang="${code}" value="" style="width:100%;padding:0.5rem;border:2px solid rgb(var(--gray-light));border-radius:4px;margin-bottom:0.75rem;font-size:1rem;font-family:monospace;" />
+          <label style="display:block;font-weight:600;margin-bottom:0.25rem;">Description</label>
+          <input type="text" data-field="description" data-lang="${code}" value="" style="width:100%;padding:0.5rem;border:2px solid rgb(var(--gray-light));border-radius:4px;margin-bottom:0.75rem;font-size:1rem;" />
+          <label style="display:block;font-weight:600;margin-bottom:0.25rem;">Content (Markdown)</label>
+          <textarea data-field="content" data-lang="${code}" rows="14" style="width:100%;padding:0.5rem;border:2px solid rgb(var(--gray-light));border-radius:4px;font-family:monospace;font-size:0.95rem;line-height:1.6;"></textarea>
+        `;
+        draftsEl.appendChild(card);
+
+        (card.querySelector('[data-field="title"]') as HTMLInputElement).value = gen.title;
+        (card.querySelector('[data-field="slug"]') as HTMLInputElement).value = gen.slug;
+        (card.querySelector('[data-field="description"]') as HTMLInputElement).value = gen.description;
+        (card.querySelector('[data-field="content"]') as HTMLTextAreaElement).value = gen.content;
+      }
+
+      draftsEl.querySelectorAll('[data-field]').forEach((input) => {
+        input.addEventListener('input', () => {
+          const el = input as HTMLInputElement | HTMLTextAreaElement;
+          const field = el.dataset.field as keyof Generation;
+          const code = el.dataset.lang!;
+          const gen = state.generatedDrafts[code];
+          if (!gen) return;
+          (gen as Record<string, string>)[field] = el.value;
+        });
+      });
+
+      draftsEl.querySelectorAll<HTMLButtonElement>('[data-speak]').forEach((btn) => {
+        btn.addEventListener('click', () => speak(btn.dataset.speak!));
+      });
+      draftsEl.querySelectorAll<HTMLButtonElement>('[data-stop]').forEach((btn) => {
+        btn.addEventListener('click', () => window.speechSynthesis?.cancel());
+      });
+      draftsEl.querySelectorAll<HTMLButtonElement>('[data-regen]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const code = btn.dataset.regen!;
+          void generate([code]);
+        });
+      });
+    }
+
+    function markdownToPlain(md: string): string {
+      return md
+        .replace(/```[\s\S]*?```/g, '')
+        .replace(/`[^`]*`/g, '')
+        .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+        .replace(/^#{1,6}\s*/gm, '')
+        .replace(/^[>*-]\s+/gm, '')
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+        .replace(/\*([^*]+)\*/g, '$1')
+        .replace(/_([^_]+)_/g, '$1')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function speak(code: string) {
+      if (!('speechSynthesis' in window)) {
+        setError('Your browser does not support speech synthesis.');
+        return;
+      }
+      const gen = state.generatedDrafts[code];
+      if (!gen) return;
+      const langMeta = langByCode.get(code);
+      const text = `${gen.title}. ${gen.description}. ${markdownToPlain(gen.content)}`;
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = langMeta?.bcp47 ?? code;
+      u.rate = 1.0;
+      window.speechSynthesis.speak(u);
+    }
+
+    async function persistDrafts(): Promise<boolean> {
+      if (state.id === null) {
+        const saved = await saveDraft();
+        if (!saved) return false;
+      }
+      if (!Object.keys(state.generatedDrafts).length) return true;
+      const res = await fetch(`/api/admin/compose/sessions/${state.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', 'x-csrf-token': csrf },
+        body: JSON.stringify({ generatedDrafts: state.generatedDrafts }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        setError(body.error || `Save drafts failed (${res.status})`);
+        return false;
+      }
+      return true;
+    }
+
+    async function publish(status: 'draft' | 'published') {
+      setError(null);
+      if (!Object.keys(state.generatedDrafts).length) {
+        setError('Generate before publishing.');
+        return;
+      }
+      const target =
+        status === 'published' ? publishBtn : publishDraftBtn;
+      const originalLabel = target.textContent;
+      target.disabled = true;
+      target.textContent = 'Saving…';
+      try {
+        if (!(await persistDrafts())) return;
+        const res = await fetch(`/api/admin/compose/sessions/${state.id}/publish`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-csrf-token': csrf },
+          body: JSON.stringify({ status }),
+        });
+        if (!res.ok) {
+          const body = (await res.json().catch(() => ({}))) as { error?: string };
+          throw new Error(body.error || `Publish failed (${res.status})`);
+        }
+        const body = (await res.json()) as { posts: { language: string; slug: string }[] };
+        setStatus(
+          `${status === 'published' ? 'Published' : 'Saved as drafts'}: ${body.posts
+            .map((p) => p.language)
+            .join(', ')}. Redirecting to admin…`,
+        );
+        setTimeout(() => {
+          window.location.href = '/admin';
+        }, 900);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Publish failed');
+      } finally {
+        target.disabled = false;
+        target.textContent = originalLabel;
+      }
+    }
+
+    saveBtn.addEventListener('click', () => {
+      void saveDraft();
+    });
+    genBtn.addEventListener('click', () => {
+      void generate();
+    });
+    publishBtn.addEventListener('click', () => {
+      void publish('published');
+    });
+    publishDraftBtn.addEventListener('click', () => {
+      void publish('draft');
+    });
+    originalEl.addEventListener('blur', () => {
+      syncStateFromInputs();
+    });
+    sourceLangEl.addEventListener('change', () => {
+      syncStateFromInputs();
+    });
+
+    renderChips();
+    renderDrafts();
+    if (state.id !== null) setStatus(`Loaded session #${state.id}`);
+  </script>
+</BaseLayout>

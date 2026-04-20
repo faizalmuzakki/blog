@@ -1,20 +1,28 @@
 ---
-import BaseLayout from '../../layouts/BaseLayout.astro';
-import PostArticle from '../../components/PostArticle.astro';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import PostArticle from '../../../components/PostArticle.astro';
 import {
   DEFAULT_LANGUAGE,
   getPostBySlug,
   getPostsByTranslationGroup,
-} from '../../lib/db';
+} from '../../../lib/db';
 
-const { slug } = Astro.params;
-if (!slug) return Astro.redirect('/');
+const { lang, slug } = Astro.params;
+if (!slug || !lang) return new Response('Not found', { status: 404 });
+
+if (!/^[a-z]{2}(-[A-Z]{2})?$/.test(lang)) {
+  return new Response('Not found', { status: 404 });
+}
 
 const db = Astro.locals.runtime.env.DB;
 const user = Astro.locals.user;
 const defaultLanguage = Astro.locals.runtime.env.DEFAULT_LANGUAGE ?? DEFAULT_LANGUAGE;
 
-const post = await getPostBySlug(db, slug, defaultLanguage);
+if (lang === defaultLanguage) {
+  return Astro.redirect(`/blog/${slug}`);
+}
+
+const post = await getPostBySlug(db, slug, lang);
 
 const canSee =
   post &&

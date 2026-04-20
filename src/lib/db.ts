@@ -2,14 +2,19 @@ import type { D1Database } from '@cloudflare/workers-types';
 
 export type PostStatus = 'draft' | 'published';
 
+export const DEFAULT_LANGUAGE = 'en';
+
 export interface Post {
   id: number;
   title: string;
   slug: string;
+  language: string;
   description: string;
   content: string;
   status: PostStatus;
   heroImage: string | null;
+  translationGroupId: string | null;
+  composeSessionId: number | null;
   createdAt: string;
   updatedAt: string;
   userId: number | null;
@@ -19,16 +24,22 @@ export interface Post {
 export interface PostInput {
   title: string;
   slug: string;
+  language?: string;
   description: string;
   content: string;
   status: PostStatus;
   heroImage?: string | null;
+  translationGroupId?: string | null;
+  composeSessionId?: number | null;
   userId: number;
 }
 
 const POST_COLUMNS = `
-  p.id, p.title, p.slug, p.description, p.content, p.status,
-  p.hero_image as heroImage, p.created_at as createdAt,
+  p.id, p.title, p.slug, p.language, p.description, p.content, p.status,
+  p.hero_image as heroImage,
+  p.translation_group_id as translationGroupId,
+  p.compose_session_id as composeSessionId,
+  p.created_at as createdAt,
   p.updated_at as updatedAt, p.user_id as userId,
   u.username as authorUsername
 `;
@@ -69,16 +80,36 @@ export async function getPostsByUser(db: D1Database, userId: number): Promise<Po
   return result.results || [];
 }
 
-export async function getPostBySlug(db: D1Database, slug: string): Promise<Post | null> {
+export async function getPostBySlug(
+  db: D1Database,
+  slug: string,
+  language: string = DEFAULT_LANGUAGE,
+): Promise<Post | null> {
   const result = await db
     .prepare(
       `SELECT ${POST_COLUMNS}
          FROM posts p LEFT JOIN users u ON p.user_id = u.id
-         WHERE p.slug = ?`,
+         WHERE p.slug = ? AND p.language = ?`,
     )
-    .bind(slug)
+    .bind(slug, language)
     .first<Post>();
   return result || null;
+}
+
+export async function getPostsByTranslationGroup(
+  db: D1Database,
+  groupId: string,
+): Promise<Post[]> {
+  const result = await db
+    .prepare(
+      `SELECT ${POST_COLUMNS}
+         FROM posts p LEFT JOIN users u ON p.user_id = u.id
+         WHERE p.translation_group_id = ?
+         ORDER BY p.language ASC`,
+    )
+    .bind(groupId)
+    .all<Post>();
+  return result.results || [];
 }
 
 export async function getPostById(db: D1Database, id: number): Promise<Post | null> {
@@ -97,19 +128,27 @@ export async function createPost(db: D1Database, post: PostInput): Promise<Post>
   const now = new Date().toISOString();
   const result = await db
     .prepare(
-      `INSERT INTO posts (title, slug, description, content, status, hero_image, user_id, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-       RETURNING id, title, slug, description, content, status,
-                 hero_image as heroImage, created_at as createdAt,
+      `INSERT INTO posts
+         (title, slug, language, description, content, status, hero_image,
+          translation_group_id, compose_session_id, user_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       RETURNING id, title, slug, language, description, content, status,
+                 hero_image as heroImage,
+                 translation_group_id as translationGroupId,
+                 compose_session_id as composeSessionId,
+                 created_at as createdAt,
                  updated_at as updatedAt, user_id as userId`,
     )
     .bind(
       post.title,
       post.slug,
+      post.language ?? DEFAULT_LANGUAGE,
       post.description,
       post.content,
       post.status,
       post.heroImage ?? null,
+      post.translationGroupId ?? null,
+      post.composeSessionId ?? null,
       post.userId,
       now,
       now,
@@ -170,10 +209,11 @@ export function generateSlug(title: string): string {
 export async function slugExists(
   db: D1Database,
   slug: string,
+  language: string = DEFAULT_LANGUAGE,
   excludeId?: number,
 ): Promise<boolean> {
-  let query = 'SELECT 1 FROM posts WHERE slug = ?';
-  const params: (string | number)[] = [slug];
+  let query = 'SELECT 1 FROM posts WHERE slug = ? AND language = ?';
+  const params: (string | number)[] = [slug, language];
   if (excludeId !== undefined) {
     query += ' AND id != ?';
     params.push(excludeId);
@@ -188,11 +228,12 @@ export async function slugExists(
 export async function uniqueSlug(
   db: D1Database,
   base: string,
+  language: string = DEFAULT_LANGUAGE,
   excludeId?: number,
 ): Promise<string> {
   let candidate = base;
   let n = 2;
-  while (await slugExists(db, candidate, excludeId)) {
+  while (await slugExists(db, candidate, language, excludeId)) {
     candidate = `${base}-${n++}`;
   }
   return candidate;

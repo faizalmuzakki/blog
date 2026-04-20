@@ -8,3 +8,12 @@ pages_build_output_dir = "dist"
 binding = "DB"
 database_name = "blog-db"
 database_id = "c3ab4871-fc47-4bc2-b0ed-c808d567d118" # You'll get this after creating the D1 database
+
+# AI compose: home-server claude-api (CLI subprocess wrapper, bearer-auth'd).
+# CLAUDE_API_URL is non-secret (e.g. https://claude-api.solork.dev).
+# CLAUDE_API_SECRET must be set via `wrangler pages secret put CLAUDE_API_SECRET`.
+# DEFAULT_LANGUAGE controls which language renders at /blog/[slug]
+# (others render at /[lang]/blog/[slug]).
+[vars]
+CLAUDE_API_URL = "https://claude-api.solork.dev"
+DEFAULT_LANGUAGE = "en"

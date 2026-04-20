@@ -70,7 +70,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
     let slug: string | undefined;
     if (body.title !== undefined && body.title !== existing.title) {
       const base = generateSlug(body.title as string);
-      slug = await uniqueSlug(db, base, id);
+      slug = await uniqueSlug(db, base, existing.language, id);
     }
 
     const updated = await updatePost(db, id, {
