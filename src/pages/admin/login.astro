@@ -12,7 +12,7 @@ if (Astro.locals.user) {
   >
     <h1 style="margin-bottom: 2rem;">Admin Login</h1>
 
-    <form id="login-form">
+    <form id="login-form" method="POST" action="/api/login">
       <div style="margin-bottom: 1.5rem;">
         <label for="username" style="display: block; margin-bottom: 0.5rem; font-weight: 600;"
           >Username</label
@@ -93,7 +93,8 @@ if (Astro.locals.user) {
     if (error) {
       const errorMessages: Record<string, string> = {
         oauth_failed: 'Google sign-in failed. Please try again.',
-        invalid_request: 'Invalid OAuth request.',
+        invalid_request: 'Invalid request.',
+        invalid_credentials: 'Invalid username or password.',
         state_mismatch: 'Security validation failed. Please try again.',
         server_error: 'Server error occurred. Please try again later.',
         token_exchange_failed: 'Failed to authenticate with Google.',

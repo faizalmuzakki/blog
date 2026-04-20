@@ -4,7 +4,7 @@ import { getUserBySession, getSession, rotateSessionIfStale, SESSION_TTL_MS } fr
 const CSP = [
   "default-src 'self'",
   "img-src 'self' https: data:",
-  "script-src 'self'",
+  "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
   "object-src 'none'",
   "base-uri 'self'",
