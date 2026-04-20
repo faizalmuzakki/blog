@@ -1,6 +1,6 @@
 // Google OAuth callback endpoint
 import type { APIRoute } from 'astro';
-import { findOrCreateGoogleUser, createSession } from '../../../../lib/auth';
+import { findOrCreateGoogleUser, createSession, SESSION_TTL_MS } from '../../../../lib/auth';
 
 interface GoogleTokenResponse {
   access_token: string;
@@ -111,9 +111,9 @@ export const GET: APIRoute = async ({ url, cookies, locals, redirect }) => {
     cookies.set('session', session.id, {
       path: '/',
       httpOnly: true,
-      secure: true,
+      secure: import.meta.env.PROD,
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      maxAge: Math.floor(SESSION_TTL_MS / 1000),
     });
 
     // Redirect to admin dashboard

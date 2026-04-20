@@ -1,219 +1,113 @@
-// Posts API routes - Get, Update, Delete by ID
-
 import type { APIRoute } from 'astro';
-import { getUserBySession, canModifyPost } from '../../../lib/auth';
-import { getPostById, updatePost, deletePost, generateSlug, slugExists } from '../../../lib/db';
+import {
+  getPostById,
+  updatePost,
+  deletePost,
+  generateSlug,
+  uniqueSlug,
+  type PostStatus,
+} from '../../../lib/db';
+import { canModifyPost } from '../../../lib/auth';
+import { LIMITS, validateLength, validateHttpsUrl, ValidationError } from '../../../lib/validation';
 
-// GET - Get single post by ID
-export const GET: APIRoute = async ({ params, locals, cookies }) => {
-  try {
-    const sessionId = cookies.get('session')?.value;
+function parseId(raw: string | undefined): number | null {
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
 
-    if (!sessionId) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    const db = locals.runtime.env.DB;
-    const user = await getUserBySession(db, sessionId);
-
-    if (!user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    const id = parseInt(params.id || '');
-
-    if (isNaN(id)) {
-      return new Response(JSON.stringify({ error: 'Invalid post ID' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    const post = await getPostById(db, id);
-
-    if (!post) {
-      return new Response(JSON.stringify({ error: 'Post not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    return new Response(JSON.stringify({ post }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  } catch (error) {
-    console.error('Get post error:', error);
-    return new Response(JSON.stringify({ error: 'An error occurred while fetching the post' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
+export const GET: APIRoute = async ({ params, locals }) => {
+  const db = locals.runtime.env.DB;
+  const user = locals.user;
+  if (!user) return new Response('Unauthorized', { status: 401 });
+  const id = parseId(params.id);
+  if (id === null) return new Response('Not found', { status: 404 });
+  const post = await getPostById(db, id);
+  if (!post) return new Response('Not found', { status: 404 });
+  if (!canModifyPost(user, post.userId)) return new Response('Forbidden', { status: 403 });
+  return new Response(JSON.stringify(post), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
 };
 
-// PUT - Update post
-export const PUT: APIRoute = async ({ params, request, locals, cookies }) => {
+export const PUT: APIRoute = async ({ params, request, locals }) => {
+  const db = locals.runtime.env.DB;
+  const user = locals.user;
+  if (!user) return new Response('Unauthorized', { status: 401 });
+  const id = parseId(params.id);
+  if (id === null) return new Response('Not found', { status: 404 });
+
+  const existing = await getPostById(db, id);
+  if (!existing) return new Response('Not found', { status: 404 });
+  if (!canModifyPost(user, existing.userId)) return new Response('Forbidden', { status: 403 });
+
   try {
-    const sessionId = cookies.get('session')?.value;
-
-    if (!sessionId) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    const db = locals.runtime.env.DB;
-    const user = await getUserBySession(db, sessionId);
-
-    if (!user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    const id = parseInt(params.id || '');
-
-    if (isNaN(id)) {
-      return new Response(JSON.stringify({ error: 'Invalid post ID' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Check if post exists and user can modify it
-    const existingPost = await getPostById(db, id);
-
-    if (!existingPost) {
-      return new Response(JSON.stringify({ error: 'Post not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    if (!canModifyPost(user, existingPost.userId)) {
-      return new Response(
-        JSON.stringify({ error: 'Forbidden: You do not have permission to modify this post' }),
-        { status: 403, headers: { 'Content-Type': 'application/json' } },
-      );
-    }
-
-    // TODO(Task 8): replace isPrivate/privatePassword with status field
-    const { title, slug, description, content, isPrivate, heroImage } = (await request.json()) as {
-      title: string;
-      slug: string;
-      description: string;
-      content: string;
-      isPrivate: boolean;
-      heroImage: string;
+    const body = (await request.json()) as {
+      title?: unknown;
+      description?: unknown;
+      content?: unknown;
+      status?: unknown;
+      heroImage?: unknown;
     };
 
-    // If title changed, regenerate slug
-    let updatedSlug = slug;
-    if (title && !slug) {
-      updatedSlug = generateSlug(title);
+    if (body.title !== undefined) validateLength('title', body.title, LIMITS.title);
+    if (body.description !== undefined)
+      validateLength('description', body.description, LIMITS.description);
+    if (body.content !== undefined) validateLength('content', body.content, LIMITS.content);
 
-      // Check if slug exists (excluding current post)
-      if (await slugExists(db, updatedSlug, id)) {
-        let counter = 1;
-        let newSlug = `${updatedSlug}-${counter}`;
-        while (await slugExists(db, newSlug, id)) {
-          counter++;
-          newSlug = `${updatedSlug}-${counter}`;
-        }
-        updatedSlug = newSlug;
-      }
+    let status: PostStatus | undefined;
+    if (body.status !== undefined) {
+      status = body.status === 'published' ? 'published' : 'draft';
     }
 
-    const post = await updatePost(db, id, {
-      ...(title && { title }),
-      ...(updatedSlug && { slug: updatedSlug }),
-      ...(description && { description }),
-      ...(content && { content }),
-      ...(isPrivate !== undefined && { status: isPrivate ? 'draft' : 'published' }),
-      ...(heroImage !== undefined && { heroImage }),
-      userId: user.id,
-    });
+    let heroImage: string | null | undefined;
+    if (body.heroImage !== undefined) {
+      heroImage = typeof body.heroImage === 'string' && body.heroImage ? body.heroImage : null;
+      validateHttpsUrl('heroImage', heroImage);
+    }
 
-    return new Response(JSON.stringify({ post }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
+    let slug: string | undefined;
+    if (body.title !== undefined && body.title !== existing.title) {
+      const base = generateSlug(body.title as string);
+      slug = await uniqueSlug(db, base, id);
+    }
+
+    const updated = await updatePost(db, id, {
+      title: body.title as string | undefined,
+      slug,
+      description: body.description as string | undefined,
+      content: body.content as string | undefined,
+      status,
+      heroImage,
     });
-  } catch (error) {
-    console.error('Update post error:', error);
-    return new Response(JSON.stringify({ error: 'An error occurred while updating the post' }), {
+    return new Response(JSON.stringify(updated), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      return new Response(JSON.stringify({ error: err.message, field: err.field }), {
+        status: 400,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({ error: 'Internal error' }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'content-type': 'application/json' },
     });
   }
 };
 
-// DELETE - Delete post
-export const DELETE: APIRoute = async ({ params, locals, cookies }) => {
-  try {
-    const sessionId = cookies.get('session')?.value;
-
-    if (!sessionId) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    const db = locals.runtime.env.DB;
-    const user = await getUserBySession(db, sessionId);
-
-    if (!user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    const id = parseInt(params.id || '');
-
-    if (isNaN(id)) {
-      return new Response(JSON.stringify({ error: 'Invalid post ID' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Check if post exists and user can modify it
-    const existingPost = await getPostById(db, id);
-
-    if (!existingPost) {
-      return new Response(JSON.stringify({ error: 'Post not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    if (!canModifyPost(user, existingPost.userId)) {
-      return new Response(
-        JSON.stringify({ error: 'Forbidden: You do not have permission to delete this post' }),
-        { status: 403, headers: { 'Content-Type': 'application/json' } },
-      );
-    }
-
-    await deletePost(db, id);
-
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  } catch (error) {
-    console.error('Delete post error:', error);
-    return new Response(JSON.stringify({ error: 'An error occurred while deleting the post' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
+export const DELETE: APIRoute = async ({ params, locals }) => {
+  const db = locals.runtime.env.DB;
+  const user = locals.user;
+  if (!user) return new Response('Unauthorized', { status: 401 });
+  const id = parseId(params.id);
+  if (id === null) return new Response('Not found', { status: 404 });
+  const existing = await getPostById(db, id);
+  if (!existing) return new Response('Not found', { status: 404 });
+  if (!canModifyPost(user, existing.userId)) return new Response('Forbidden', { status: 403 });
+  await deletePost(db, id);
+  return new Response(null, { status: 204 });
 };

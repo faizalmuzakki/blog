@@ -1,118 +1,74 @@
-// Posts API routes - List and Create
-
 import type { APIRoute } from 'astro';
-import { getUserBySession, canViewAllPosts } from '../../../lib/auth';
-import { getAllPosts, getPostsByUser, createPost, generateSlug, slugExists } from '../../../lib/db';
+import {
+  createPost,
+  generateSlug,
+  uniqueSlug,
+  getAllPosts,
+  getPostsByUser,
+  type PostStatus,
+} from '../../../lib/db';
+import { canViewAllPosts } from '../../../lib/auth';
+import { LIMITS, validateLength, validateHttpsUrl, ValidationError } from '../../../lib/validation';
 
-// GET - List all posts (requires authentication)
-export const GET: APIRoute = async ({ locals, cookies }) => {
-  try {
-    const sessionId = cookies.get('session')?.value;
-
-    if (!sessionId) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    const db = locals.runtime.env.DB;
-    const user = await getUserBySession(db, sessionId);
-
-    if (!user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Admins see all posts, regular users see only their own posts
-    const posts = canViewAllPosts(user) ? await getAllPosts(db) : await getPostsByUser(db, user.id);
-
-    return new Response(JSON.stringify({ posts }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  } catch (error) {
-    console.error('Get posts error:', error);
-    return new Response(JSON.stringify({ error: 'An error occurred while fetching posts' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
+export const GET: APIRoute = async ({ locals }) => {
+  const db = locals.runtime.env.DB;
+  const user = locals.user;
+  if (!user) return new Response('Unauthorized', { status: 401 });
+  const posts = canViewAllPosts(user) ? await getAllPosts(db) : await getPostsByUser(db, user.id);
+  return new Response(JSON.stringify(posts), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
 };
 
-// POST - Create new post (requires authentication)
-export const POST: APIRoute = async ({ request, locals, cookies }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
+  const db = locals.runtime.env.DB;
+  const user = locals.user;
+  if (!user) return new Response('Unauthorized', { status: 401 });
+
   try {
-    const sessionId = cookies.get('session')?.value;
-
-    if (!sessionId) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    const db = locals.runtime.env.DB;
-    const user = await getUserBySession(db, sessionId);
-
-    if (!user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    // TODO(Task 8): replace isPrivate/privatePassword with status field
-    const { title, description, content, isPrivate, heroImage } = (await request.json()) as {
-      title: string;
-      description: string;
-      content: string;
-      isPrivate: boolean;
-      heroImage: string;
+    const body = (await request.json()) as {
+      title?: unknown;
+      description?: unknown;
+      content?: unknown;
+      status?: unknown;
+      heroImage?: unknown;
     };
 
-    if (!title || !description || !content) {
-      return new Response(
-        JSON.stringify({ error: 'Title, description, and content are required' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } },
-      );
-    }
+    validateLength('title', body.title, LIMITS.title);
+    validateLength('description', body.description, LIMITS.description);
+    validateLength('content', body.content, LIMITS.content);
 
-    // Generate slug from title
-    let slug = generateSlug(title);
+    const status: PostStatus = body.status === 'published' ? 'published' : 'draft';
+    const heroImage = typeof body.heroImage === 'string' && body.heroImage ? body.heroImage : null;
+    validateHttpsUrl('heroImage', heroImage);
 
-    // Check if slug exists, if so, append a number
-    if (await slugExists(db, slug)) {
-      let counter = 1;
-      let newSlug = `${slug}-${counter}`;
-      while (await slugExists(db, newSlug)) {
-        counter++;
-        newSlug = `${slug}-${counter}`;
-      }
-      slug = newSlug;
-    }
+    const baseSlug = generateSlug(body.title as string);
+    const slug = await uniqueSlug(db, baseSlug);
 
-    const post = await createPost(db, {
-      title,
+    const created = await createPost(db, {
+      title: body.title as string,
       slug,
-      description,
-      content,
-      status: isPrivate ? 'draft' : 'published',
-      heroImage: heroImage || undefined,
+      description: body.description as string,
+      content: body.content as string,
+      status,
+      heroImage,
       userId: user.id,
     });
-
-    return new Response(JSON.stringify({ post }), {
+    return new Response(JSON.stringify(created), {
       status: 201,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'content-type': 'application/json' },
     });
-  } catch (error) {
-    console.error('Create post error:', error);
-    return new Response(JSON.stringify({ error: 'An error occurred while creating the post' }), {
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      return new Response(JSON.stringify({ error: err.message, field: err.field }), {
+        status: 400,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({ error: 'Internal error' }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'content-type': 'application/json' },
     });
   }
 };

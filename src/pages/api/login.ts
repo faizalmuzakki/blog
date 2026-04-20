@@ -1,56 +1,45 @@
-// Login API route
-
 import type { APIRoute } from 'astro';
-import { authenticateUser, createSession } from '../../lib/auth';
+import { authenticateUser, createSession, SESSION_TTL_MS } from '../../lib/auth';
+import { LIMITS, validateLength, ValidationError } from '../../lib/validation';
 
-export const POST: APIRoute = async ({ request, locals, cookies }) => {
+export const POST: APIRoute = async ({ request, cookies, locals }) => {
+  const db = locals.runtime.env.DB;
   try {
-    const { username, password } = (await request.json()) as {
-      username: string;
-      password: string;
-    };
+    const body = (await request.json()) as { username?: unknown; password?: unknown };
+    validateLength('username', body.username, LIMITS.username);
+    validateLength('password', body.password, 200);
 
-    if (!username || !password) {
-      return new Response(JSON.stringify({ error: 'Username and password are required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Get D1 database from runtime
-    const db = locals.runtime.env.DB;
-
-    // Authenticate user
-    const user = await authenticateUser(db, username, password);
-
+    const user = await authenticateUser(db, body.username as string, body.password as string);
     if (!user) {
-      return new Response(JSON.stringify({ error: 'Invalid username or password' }), {
+      return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
         status: 401,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'content-type': 'application/json' },
       });
     }
 
-    // Create session
     const session = await createSession(db, user.id);
-
-    // Set cookie
     cookies.set('session', session.id, {
       path: '/',
       httpOnly: true,
-      secure: true,
+      secure: import.meta.env.PROD,
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      maxAge: Math.floor(SESSION_TTL_MS / 1000),
     });
 
-    return new Response(JSON.stringify({ success: true, user }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  } catch (error) {
-    console.error('Login error:', error);
-    return new Response(JSON.stringify({ error: 'An error occurred during login' }), {
+    return new Response(
+      JSON.stringify({ ok: true, user: { id: user.id, username: user.username, role: user.role } }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      return new Response(JSON.stringify({ error: err.message, field: err.field }), {
+        status: 400,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({ error: 'Internal error' }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'content-type': 'application/json' },
     });
   }
 };
