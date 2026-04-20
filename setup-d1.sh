@@ -57,30 +57,37 @@ wrangler d1 execute blog-db --file=./schema.sql
 echo "✅ Tables created"
 echo ""
 
-# Create admin user with password hash
-echo "Creating admin user..."
-node setup-admin.js > admin-user.sql
-wrangler d1 execute blog-db --file=./admin-user.sql
-rm admin-user.sql
-echo "✅ Admin user created"
-echo ""
-
 # Run seed data (blog posts)
 echo "Inserting seed data..."
 wrangler d1 execute blog-db --file=./seed.sql
 echo "✅ Seed data inserted"
 echo ""
 
+# Generate a strong random admin password on first run
+echo "Creating admin user with generated password..."
+ADMIN_PASSWORD=$(openssl rand -base64 18)
+ADMIN_HASH=$(node generate-password.js --hash-only "$ADMIN_PASSWORD")
+
+# Write a one-shot SQL file to avoid shell quoting issues with $ in the hash
+cat > /tmp/insert-admin.sql <<SQL
+INSERT INTO users (username, password_hash, role) VALUES ('admin', '${ADMIN_HASH}', 'admin');
+SQL
+wrangler d1 execute blog-db --file=/tmp/insert-admin.sql
+rm /tmp/insert-admin.sql
+echo "✅ Admin user created"
+echo ""
+
 echo "==================================="
 echo "✅ Setup Complete!"
 echo "==================================="
 echo ""
-echo "Default admin credentials:"
-echo "  Username: admin"
-echo "  Password: admin123"
+echo "================================================================"
+echo "⚠️  Save this password now — it will not be shown again."
 echo ""
-echo "To change the password, run:"
-echo "  node generate-password.js your-new-password"
+echo "   Username: admin"
+echo "   Password: $ADMIN_PASSWORD"
+echo ""
+echo "================================================================"
 echo ""
 echo "Next steps:"
 echo "  1. Run 'npm install' to install dependencies"

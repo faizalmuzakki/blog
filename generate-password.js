@@ -1,7 +1,14 @@
 // Script to generate password hash using Web Crypto API (PBKDF2)
-// Usage: node generate-password.js <password>
+// Usage: node generate-password.js [--hash-only] <password>
 
-const password = process.argv[2] || 'admin123';
+const args = process.argv.slice(2);
+const hashOnly = args[0] === '--hash-only';
+const password = hashOnly ? args[1] : args[0];
+
+if (!password) {
+  console.error('Usage: node generate-password.js [--hash-only] <password>');
+  process.exit(1);
+}
 
 // Convert string to Uint8Array
 function stringToUint8Array(str) {
@@ -49,14 +56,18 @@ async function hashPassword(password) {
 // Run the hash
 hashPassword(password)
   .then((hash) => {
-    console.log('\n=================================');
-    console.log('Password Hash Generated');
-    console.log('=================================');
-    console.log(`Password: ${password}`);
-    console.log(`Hash: ${hash}`);
-    console.log('\nAdd this to your seed.sql file:');
-    console.log(`INSERT INTO users (username, password_hash) VALUES ('admin', '${hash}');`);
-    console.log('=================================\n');
+    if (hashOnly) {
+      console.log(hash);
+    } else {
+      console.log('\n=================================');
+      console.log('Password Hash Generated');
+      console.log('=================================');
+      console.log(`Password: ${password}`);
+      console.log(`Hash: ${hash}`);
+      console.log('\nAdd this to your seed.sql file:');
+      console.log(`INSERT INTO users (username, password_hash) VALUES ('admin', '${hash}');`);
+      console.log('=================================\n');
+    }
   })
   .catch((err) => {
     console.error('Error generating hash:', err);

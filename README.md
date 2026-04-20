@@ -69,13 +69,27 @@ This script will:
 
 - Create your D1 database
 - Set up the schema (users, posts, sessions tables)
-- Insert seed data with default admin user
+- Insert seed data (blog posts)
+- Generate a random admin password and insert the admin user
 - Update your wrangler.toml with the database ID
 
-**Default Login Credentials:**
+### Admin credentials
 
-- Username: `admin`
-- Password: `admin123`
+`./setup-d1.sh` generates a random admin password on first run and prints it once:
+
+    ⚠️  Save this password now — it will not be shown again.
+
+       Username: admin
+       Password: <generated>
+
+Store it in a password manager. If you lose it, generate a new hash with:
+
+    node generate-password.js --hash-only "<new-password>"
+
+and update the row:
+
+    wrangler d1 execute blog-db --remote \
+      --command "UPDATE users SET password_hash = '<new-hash>' WHERE username = 'admin'"
 
 4. **Start the development server**
 
@@ -85,7 +99,7 @@ npm run dev
 
 5. **Login to admin dashboard**
 
-Visit `http://localhost:4321/admin/login` and use the default credentials above.
+Visit `http://localhost:4321/admin/login` and use the admin credentials printed during setup.
 
 ## Setting Up Google OAuth (Optional)
 
