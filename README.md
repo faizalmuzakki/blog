@@ -1,6 +1,6 @@
 # Blog with Admin Dashboard
 
-A dynamic blog built with Astro SSR, Cloudflare D1 database, and an admin dashboard for creating and managing posts. Features authentication (username/password + Google OAuth), role-based access control, public/private posts, and easy deployment to Cloudflare Pages.
+A dynamic blog built with Astro SSR, Cloudflare D1 database, and an admin dashboard for creating and managing posts. Features authentication (username/password + Google OAuth), role-based access control, draft/published posts, and easy deployment to Cloudflare Pages.
 
 ## Features
 
@@ -15,10 +15,10 @@ A dynamic blog built with Astro SSR, Cloudflare D1 database, and an admin dashbo
   - Automatic role assignment (existing users → admin, OAuth users → user)
 
 - **Post Management**
-  - Create, edit, and delete posts via web interface
-  - Author attribution displayed on all posts
-  - Public & private posts with password protection
-  - Markdown support with hero images
+  - Create, edit, and delete posts via the admin dashboard
+  - Draft / Published status — drafts visible only to the author (and admins)
+  - Author attribution on all posts
+  - Sanitized Markdown with hero images
 
 - **Admin Dashboard**
   - Admins see all posts from all users
@@ -30,6 +30,11 @@ A dynamic blog built with Astro SSR, Cloudflare D1 database, and an admin dashbo
   - Astro SSR for dynamic content
   - TypeScript for type safety
   - Responsive design
+
+## Session and CSRF
+
+- Sessions expire after 24 hours of inactivity. Active sessions rotate their ID every hour to limit the blast radius of a leaked cookie.
+- All non-GET requests to `/api/*` (except `/api/login` and `/api/auth/google*`) must carry a CSRF token. The token is exposed to admin pages as `Astro.locals.csrfToken` and included automatically by the bundled forms.
 
 ## Quick Start
 
@@ -116,6 +121,7 @@ To enable Google sign-in, follow the detailed guide in [`GOOGLE_OAUTH_SETUP.md`]
 ```env
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-client-secret
+PUBLIC_SITE_URL=http://localhost:4321
 ```
 
 **Production:**
@@ -151,14 +157,13 @@ git push origin main
    - **Variable name:** `DB`
    - **D1 database:** Select `blog-db` (or your database name)
 
-#### Step 4: Set up environment variables (for Google OAuth)
-
-If using Google OAuth:
+#### Step 4: Set up environment variables
 
 1. Go to **Settings** > **Environment variables**
 2. Add for **Production**:
-   - `GOOGLE_CLIENT_ID`: Your Google OAuth Client ID
-   - `GOOGLE_CLIENT_SECRET`: Your Google OAuth Client Secret
+   - `PUBLIC_SITE_URL`: Your production URL (e.g. `https://blog.example.com`). Used by RSS + sitemap.
+   - `GOOGLE_CLIENT_ID`: Your Google OAuth Client ID (if using Google OAuth)
+   - `GOOGLE_CLIENT_SECRET`: Your Google OAuth Client Secret (if using Google OAuth)
 3. (Optional) Add the same for **Preview** deployments
 
 #### Step 5: Run database migrations on production
@@ -179,6 +184,8 @@ This migration adds:
 #### Step 6: Deploy!
 
 Your site will automatically deploy. Every push to your main branch will trigger a new deployment.
+
+After deploying, edit `public/robots.txt` and replace `REPLACE-WITH-YOUR-DOMAIN` with your actual domain. This only needs to be done once.
 
 ### Updating an Existing Deployment
 
@@ -357,8 +364,7 @@ npm run db:push
    - **Description** - Short description (appears in list)
    - **Content** - Full post content in Markdown
    - **Hero Image URL** (optional) - Header image
-   - **Make this post private** - Toggle for password protection
-   - **Private Password** - Password readers need to view (if private)
+   - **Status** - Draft (visible only to you and admins) or Published
 3. Click "Create Post"
 4. Post is automatically attributed to you
 
@@ -398,8 +404,7 @@ Click the "Logout" button in the top-right corner of the admin dashboard.
 - `slug` - URL-friendly slug (auto-generated)
 - `description` - Short description
 - `content` - Full markdown content
-- `is_private` - Boolean (0 = public, 1 = private)
-- `private_password` - Password for private posts
+- `status` - `'draft'` or `'published'`
 - `hero_image` - Optional header image URL
 - `created_at` - Timestamp
 - `updated_at` - Timestamp
@@ -409,7 +414,7 @@ Click the "Logout" button in the top-right corner of the admin dashboard.
 
 - `id` - Session ID (primary key)
 - `user_id` - Foreign key to users
-- `expires_at` - Expiration timestamp (7 days)
+- `expires_at` - Expiration timestamp (24 hours inactivity)
 - `created_at` - Timestamp
 
 ## API Endpoints
@@ -467,16 +472,20 @@ wrangler d1 execute blog-db --remote \
 
 ## Commands
 
-| Command           | Action                                                   |
-| :---------------- | :------------------------------------------------------- |
-| `npm install`     | Install dependencies                                     |
-| `npm run dev`     | Start local dev server at `localhost:4321`               |
-| `npm run build`   | Build production site to `./dist/`                       |
-| `npm run preview` | Preview build locally before deploying                   |
-| `npm run deploy`  | Build and deploy to Cloudflare Pages                     |
-| `npm run db:pull` | Sync remote database to local                            |
-| `npm run db:push` | Sync local database to remote (⚠️ overwrites production) |
-| `./setup-d1.sh`   | Set up Cloudflare D1 database                            |
+| Command              | Action                                              |
+| :------------------- | :-------------------------------------------------- |
+| `npm install`        | Install dependencies                                |
+| `npm run dev`        | Start local dev server at `localhost:4321`          |
+| `npm run build`      | Build production site to `./dist/`                  |
+| `npm run preview`    | Preview build locally before deploying              |
+| `npm run deploy`     | Build and deploy to Cloudflare Pages                |
+| `npm run lint`       | Lint all `.ts` and `.astro` files                   |
+| `npm run format`     | Format all files with Prettier                      |
+| `npm run type-check` | Run `astro check`                                   |
+| `npm test`           | Run Vitest unit tests                               |
+| `npm run db:pull`    | Sync remote database to local                       |
+| `npm run db:push`    | Sync local database to remote (⚠️ overwrites)       |
+| `./setup-d1.sh`      | Create D1 DB, apply schema, generate admin password |
 
 ## Wrangler Commands
 
@@ -512,13 +521,23 @@ wrangler d1 execute blog-db --remote --file=./migrations/001_add_oauth_support.s
 ## Security Features
 
 - ✅ **Password Hashing**: PBKDF2 with 100,000 iterations
-- ✅ **Session Management**: HttpOnly, Secure cookies with 7-day expiration
-- ✅ **CSRF Protection**: State parameter for OAuth flows
+- ✅ **Session Management**: HttpOnly, Secure cookies with 24-hour inactivity expiry; session ID rotated hourly
+- ✅ **CSRF Protection**: Token required on all mutating API requests; state parameter for OAuth flows
 - ✅ **Role-Based Access Control**: Admin vs User permissions
 - ✅ **Server-Side Authorization**: API enforces ownership checks
 - ✅ **HTTPS**: Required in production (automatic with Cloudflare Pages)
 
-**Note:** Private posts use client-side password protection and are not suitable for truly sensitive content.
+## Rate limiting (production)
+
+Rate limiting is configured in the Cloudflare dashboard, not in the app. Recommended rules:
+
+| Path                        | Limit                     | Action               |
+| --------------------------- | ------------------------- | -------------------- |
+| `/api/login`                | 10 requests / minute / IP | Block for 10 minutes |
+| `/api/auth/google/callback` | 20 requests / minute / IP | Block for 10 minutes |
+| `/api/posts` (POST)         | 30 requests / minute / IP | Challenge            |
+
+Add these in **Security > WAF > Rate limiting rules** for the production zone.
 
 ## Troubleshooting
 
@@ -566,19 +585,17 @@ wrangler d1 execute blog-db --remote \
 4. Run migrations if schema changed
 5. Clear browser cache
 
-## Migration Checklist
+## Migration order (this release)
 
-If updating from an older version:
+Before pushing the updated code to production, run the new migrations on the remote D1 in order:
 
-- [ ] Pull latest code: `git pull origin main`
-- [ ] Install dependencies: `npm install`
-- [ ] Test locally: `wrangler d1 execute blog-db --local --file=./migrations/001_add_oauth_support.sql`
-- [ ] Run local dev server: `npm run dev`
-- [ ] Verify everything works locally
-- [ ] Run production migration: `wrangler d1 execute blog-db --remote --file=./migrations/001_add_oauth_support.sql`
-- [ ] (Optional) Add Google OAuth credentials to Cloudflare Pages
-- [ ] Deploy: `git push origin main`
-- [ ] Verify production site works
+```bash
+wrangler d1 execute blog-db --remote --file=./migrations/002_drafts_replace_private.sql
+wrangler d1 execute blog-db --remote --file=./migrations/003_sessions_csrf.sql
+wrangler d1 execute blog-db --remote --file=./migrations/004_cascade_deletes.sql
+```
+
+Existing sessions are invalidated by migration 003 — users will need to log in again.
 
 ## License
 
