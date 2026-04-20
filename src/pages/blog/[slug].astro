@@ -21,9 +21,10 @@ if (!post) {
 // Convert markdown content to HTML
 const contentHtml = marked(post.content);
 
-// Check if the post is private
-const isPrivate = post.isPrivate;
-const privatePassword = post.privatePassword || 'secret';
+// Check if the post is a draft (was: isPrivate) — TODO(Task 9): remove password-gate UI entirely
+const isPrivate = post.status !== 'published';
+// privatePassword removed in migration 002; bridge value keeps client script compilable
+const privatePassword = 'DRAFT';
 ---
 
 <BaseLayout title={post.title} description={post.description}>

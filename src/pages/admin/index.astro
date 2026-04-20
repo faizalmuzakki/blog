@@ -65,9 +65,9 @@ const posts = canViewAllPosts(user) ? await getAllPosts(db) : await getPostsByUs
             <div style="flex: 1;">
               <h3 style="font-size: 1.25rem; margin-bottom: 0.5rem;">
                 {post.title}
-                {post.isPrivate && (
+                {post.status !== 'published' && (
                   <span style="display: inline-block; margin-left: 0.5rem; padding: 0.25rem 0.5rem; background: rgb(var(--gray-light)); border-radius: 4px; font-size: 0.75rem; font-weight: 600; color: rgb(var(--gray));">
-                    PRIVATE
+                    DRAFT
                   </span>
                 )}
               </h3>

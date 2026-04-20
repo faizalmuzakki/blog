@@ -64,15 +64,14 @@ export const POST: APIRoute = async ({ request, locals, cookies }) => {
       });
     }
 
-    const { title, description, content, isPrivate, privatePassword, heroImage } =
-      (await request.json()) as {
-        title: string;
-        description: string;
-        content: string;
-        isPrivate: boolean;
-        privatePassword: string;
-        heroImage: string;
-      };
+    // TODO(Task 8): replace isPrivate/privatePassword with status field
+    const { title, description, content, isPrivate, heroImage } = (await request.json()) as {
+      title: string;
+      description: string;
+      content: string;
+      isPrivate: boolean;
+      heroImage: string;
+    };
 
     if (!title || !description || !content) {
       return new Response(
@@ -100,8 +99,7 @@ export const POST: APIRoute = async ({ request, locals, cookies }) => {
       slug,
       description,
       content,
-      isPrivate: isPrivate || false,
-      privatePassword: privatePassword || undefined,
+      status: isPrivate ? 'draft' : 'published',
       heroImage: heroImage || undefined,
       userId: user.id,
     });

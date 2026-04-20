@@ -103,7 +103,7 @@ if (!post) {
           type="checkbox"
           id="isPrivate"
           name="isPrivate"
-          checked={post.isPrivate}
+          checked={post.status !== 'published'}
           style="width: 1.25rem; height: 1.25rem; cursor: pointer;"
         />
         <span style="font-weight: 600;">Make this post private</span>
@@ -112,7 +112,7 @@ if (!post) {
 
     <div
       id="private-password-field"
-      style={`margin-bottom: 1.5rem; display: ${post.isPrivate ? 'block' : 'none'};`}
+      style={`margin-bottom: 1.5rem; display: ${post.status !== 'published' ? 'block' : 'none'};`}
     >
       <label for="privatePassword" style="display: block; margin-bottom: 0.5rem; font-weight: 600;"
         >Private Post Password</label
@@ -121,7 +121,7 @@ if (!post) {
         type="text"
         id="privatePassword"
         name="privatePassword"
-        value={post.privatePassword || ''}
+        value={''}
         style="width: 100%; padding: 0.75rem; border: 2px solid rgb(var(--gray-light)); border-radius: 4px; font-size: 1rem;"
         placeholder="Enter password for private post"
       />

@@ -105,16 +105,15 @@ export const PUT: APIRoute = async ({ params, request, locals, cookies }) => {
       );
     }
 
-    const { title, slug, description, content, isPrivate, privatePassword, heroImage } =
-      (await request.json()) as {
-        title: string;
-        slug: string;
-        description: string;
-        content: string;
-        isPrivate: boolean;
-        privatePassword: string;
-        heroImage: string;
-      };
+    // TODO(Task 8): replace isPrivate/privatePassword with status field
+    const { title, slug, description, content, isPrivate, heroImage } = (await request.json()) as {
+      title: string;
+      slug: string;
+      description: string;
+      content: string;
+      isPrivate: boolean;
+      heroImage: string;
+    };
 
     // If title changed, regenerate slug
     let updatedSlug = slug;
@@ -138,8 +137,7 @@ export const PUT: APIRoute = async ({ params, request, locals, cookies }) => {
       ...(updatedSlug && { slug: updatedSlug }),
       ...(description && { description }),
       ...(content && { content }),
-      ...(isPrivate !== undefined && { isPrivate }),
-      ...(privatePassword !== undefined && { privatePassword }),
+      ...(isPrivate !== undefined && { status: isPrivate ? 'draft' : 'published' }),
       ...(heroImage !== undefined && { heroImage }),
       userId: user.id,
     });
