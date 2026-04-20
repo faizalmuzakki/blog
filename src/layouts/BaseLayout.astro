@@ -14,6 +14,7 @@ const { title, description = 'Solork Blog' } = Astro.props;
     <meta name="description" content={description} />
     <meta name="viewport" content="width=device-width" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="alternate" type="application/rss+xml" title="Blog RSS" href="/rss.xml" />
     <title>{title}</title>
     <style>
       :root {
