@@ -31,10 +31,10 @@ export const POST: APIRoute = async ({ request, locals, cookies }) => {
     }
 
     // Create session
-    const sessionId = await createSession(db, user.id);
+    const session = await createSession(db, user.id);
 
     // Set cookie
-    cookies.set('session', sessionId, {
+    cookies.set('session', session.id, {
       path: '/',
       httpOnly: true,
       secure: true,

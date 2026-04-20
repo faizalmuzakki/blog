@@ -105,10 +105,10 @@ export const GET: APIRoute = async ({ url, cookies, locals, redirect }) => {
     console.warn('[OAUTH] User found/created:', user.username);
 
     // Create session
-    const sessionId = await createSession(db, user.id);
+    const session = await createSession(db, user.id);
 
     // Set session cookie
-    cookies.set('session', sessionId, {
+    cookies.set('session', session.id, {
       path: '/',
       httpOnly: true,
       secure: true,

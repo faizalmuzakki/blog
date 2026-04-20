@@ -1,5 +1,3 @@
-// Authentication utilities
-
 import type { D1Database } from '@cloudflare/workers-types';
 
 export interface User {
@@ -13,23 +11,30 @@ export interface User {
 export interface Session {
   id: string;
   userId: number;
+  csrfToken: string;
+  createdAt: Date;
   expiresAt: Date;
 }
 
-// Generate a random session ID
+export interface SessionWithCsrf {
+  id: string;
+  csrfToken: string;
+}
+
+export const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+export const SESSION_ROTATE_AFTER_MS = 60 * 60 * 1000;
+
 export function generateSessionId(): string {
   const array = new Uint8Array(32);
   crypto.getRandomValues(array);
   return Array.from(array, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-// Convert string to Uint8Array
 function stringToUint8Array(str: string): Uint8Array<ArrayBuffer> {
   const encoded = new TextEncoder().encode(str);
   return new Uint8Array(encoded.buffer as ArrayBuffer);
 }
 
-// Convert ArrayBuffer to hex string
 function bufferToHex(buffer: ArrayBuffer | Uint8Array): string {
   const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
   return Array.from(bytes)
@@ -37,7 +42,19 @@ function bufferToHex(buffer: ArrayBuffer | Uint8Array): string {
     .join('');
 }
 
-// Hash a password using PBKDF2 (Web Crypto API)
+function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
+  const match = hex.match(/.{2}/g);
+  if (!match) return new Uint8Array(new ArrayBuffer(0));
+  return new Uint8Array(new ArrayBuffer(match.length)).map((_, i) => parseInt(match[i], 16));
+}
+
+export function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+  return diff === 0;
+}
+
 export async function hashPassword(password: string): Promise<string> {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iterations = 100000;
@@ -61,22 +78,22 @@ export async function hashPassword(password: string): Promise<string> {
     256,
   );
 
-  // Format: iterations$salt$hash
   const saltHex = bufferToHex(salt);
   const hashHex = bufferToHex(derivedBits);
 
   return `${iterations}$${saltHex}$${hashHex}`;
 }
 
-// Verify password against hash
 export async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
   try {
     const parts = storedHash.split('$');
     if (parts.length !== 3) return false;
 
-    const iterations = parseInt(parts[0]);
-    const salt = new Uint8Array(parts[1].match(/.{2}/g)?.map((byte) => parseInt(byte, 16)) || []);
-    const storedHashBytes = parts[2];
+    const iterations = parseInt(parts[0], 10);
+    if (!Number.isFinite(iterations) || iterations < 1) return false;
+
+    const salt = hexToBytes(parts[1]);
+    const expected = hexToBytes(parts[2]);
 
     const keyMaterial = await crypto.subtle.importKey(
       'raw',
@@ -87,52 +104,58 @@ export async function verifyPassword(password: string, storedHash: string): Prom
     );
 
     const derivedBits = await crypto.subtle.deriveBits(
-      {
-        name: 'PBKDF2',
-        salt: salt,
-        iterations: iterations,
-        hash: 'SHA-256',
-      },
+      { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
       keyMaterial,
       256,
     );
 
-    const hashHex = bufferToHex(derivedBits);
-
-    // Constant-time comparison
-    return hashHex === storedHashBytes;
-  } catch (error) {
-    console.error('Password verification error:', error);
+    return constantTimeEqual(new Uint8Array(derivedBits), expected);
+  } catch {
     return false;
   }
 }
 
-// Create a new session
-export async function createSession(db: D1Database, userId: number): Promise<string> {
-  const sessionId = generateSessionId();
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 7); // Session expires in 7 days
-
-  await db
-    .prepare('INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)')
-    .bind(sessionId, userId, expiresAt.toISOString())
-    .run();
-
-  return sessionId;
+export function generateCsrfToken(): string {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return Array.from(array, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-// Get session from database
+export async function createSession(db: D1Database, userId: number): Promise<SessionWithCsrf> {
+  const sessionId = generateSessionId();
+  const csrfToken = generateCsrfToken();
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + SESSION_TTL_MS);
+
+  await db
+    .prepare(
+      'INSERT INTO sessions (id, user_id, csrf_token, expires_at, created_at) VALUES (?, ?, ?, ?, ?)',
+    )
+    .bind(sessionId, userId, csrfToken, expiresAt.toISOString(), now.toISOString())
+    .run();
+
+  return { id: sessionId, csrfToken };
+}
+
 export async function getSession(db: D1Database, sessionId: string): Promise<Session | null> {
   const result = await db
-    .prepare('SELECT id, user_id as userId, expires_at as expiresAt FROM sessions WHERE id = ?')
+    .prepare(
+      `SELECT id, user_id as userId, csrf_token as csrfToken,
+              created_at as createdAt, expires_at as expiresAt
+         FROM sessions WHERE id = ?`,
+    )
     .bind(sessionId)
-    .first<{ id: string; userId: number; expiresAt: string }>();
+    .first<{
+      id: string;
+      userId: number;
+      csrfToken: string;
+      createdAt: string;
+      expiresAt: string;
+    }>();
 
   if (!result) return null;
 
   const expiresAt = new Date(result.expiresAt);
-
-  // Check if session is expired
   if (expiresAt < new Date()) {
     await deleteSession(db, sessionId);
     return null;
@@ -141,16 +164,29 @@ export async function getSession(db: D1Database, sessionId: string): Promise<Ses
   return {
     id: result.id,
     userId: result.userId,
+    csrfToken: result.csrfToken,
+    createdAt: new Date(result.createdAt),
     expiresAt,
   };
 }
 
-// Delete a session
 export async function deleteSession(db: D1Database, sessionId: string): Promise<void> {
   await db.prepare('DELETE FROM sessions WHERE id = ?').bind(sessionId).run();
 }
 
-// Get user by session
+export async function rotateSessionIfStale(
+  db: D1Database,
+  session: Session,
+): Promise<SessionWithCsrf> {
+  const age = Date.now() - session.createdAt.getTime();
+  if (age < SESSION_ROTATE_AFTER_MS) {
+    return { id: session.id, csrfToken: session.csrfToken };
+  }
+  const fresh = await createSession(db, session.userId);
+  await deleteSession(db, session.id);
+  return fresh;
+}
+
 export async function getUserBySession(db: D1Database, sessionId: string): Promise<User | null> {
   const session = await getSession(db, sessionId);
   if (!session) return null;
@@ -163,7 +199,6 @@ export async function getUserBySession(db: D1Database, sessionId: string): Promi
   return result || null;
 }
 
-// Authenticate user
 export async function authenticateUser(
   db: D1Database,
   username: string,
@@ -177,10 +212,7 @@ export async function authenticateUser(
     .first<User & { passwordHash: string }>();
 
   if (!result) return null;
-
-  const isValid = await verifyPassword(password, result.passwordHash);
-
-  if (!isValid) return null;
+  if (!(await verifyPassword(password, result.passwordHash))) return null;
 
   return {
     id: result.id,
@@ -191,7 +223,6 @@ export async function authenticateUser(
   };
 }
 
-// Find user by Google ID
 export async function getUserByGoogleId(db: D1Database, googleId: string): Promise<User | null> {
   const result = await db
     .prepare(
@@ -203,17 +234,14 @@ export async function getUserByGoogleId(db: D1Database, googleId: string): Promi
   return result || null;
 }
 
-// Create user from Google OAuth
 export async function createGoogleUser(
   db: D1Database,
   googleId: string,
   email: string,
   _name: string,
 ): Promise<User> {
-  // Generate username from email
   const username = email.split('@')[0];
 
-  // Check if username exists and make it unique if needed
   let finalUsername = username;
   let counter = 1;
   let existing = await db
@@ -246,34 +274,28 @@ export async function createGoogleUser(
   return result;
 }
 
-// Find or create Google user
 export async function findOrCreateGoogleUser(
   db: D1Database,
   googleId: string,
   email: string,
   name: string,
 ): Promise<User> {
-  // Try to find existing user by Google ID
   const existingUser = await getUserByGoogleId(db, googleId);
 
   if (existingUser) {
     return existingUser;
   }
 
-  // Create new user
   return await createGoogleUser(db, googleId, email, name);
 }
 
-// Authorization helpers
 export function isAdmin(user: User): boolean {
   return user.role === 'admin';
 }
 
 export function canModifyPost(user: User, postUserId: number | null): boolean {
-  // Admins can modify any post
   if (isAdmin(user)) return true;
 
-  // Users can only modify their own posts
   return postUserId === user.id;
 }
 
